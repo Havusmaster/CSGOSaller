@@ -372,20 +372,8 @@ def login():
     # Если уже админ, сразу в админку
     if user_id in ADMIN_IDS:
         return redirect(url_for('admin'))
-    if request.method == 'POST':
-        user_id = int(request.form.get('user_id', 0))
-        session['user_id'] = user_id
-        return redirect(url_for('admin')) if user_id in ADMIN_IDS else redirect(url_for('index'))
-    # Только для не-админов показывать форму
-    return HEADER + """
-    <div class='container'>
-      <h3>Вход по ID</h3>
-      <form method='post'>
-        <input type='number' name='user_id' class='form-control mb-2' placeholder='Ваш Telegram ID' required>
-        <button class='btn btn-primary'>Войти</button>
-      </form>
-    </div>
-    """
+    # Для не-админов не показывать форму вообще
+    return redirect(url_for('index'))
 
 # =====================
 # Главная страница (Магазин и Аукцион)
@@ -407,8 +395,7 @@ def index():
     """
     if user_id in ADMIN_IDS:
         html += "<a href='/admin' class='btn btn-dark w-100 fs-5 shadow-sm'>🔑 Админ-панель</a>"
-    else:
-        html += "<a href='/login' class='btn btn-secondary w-100 fs-5 shadow-sm'>Войти как админ</a>"
+    # Кнопка "Войти как админ" больше не показывается
     html += "</div>"
     return html
 
