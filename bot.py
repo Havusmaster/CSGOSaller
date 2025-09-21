@@ -120,14 +120,21 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 router = Router()
 
-def main_kb():
-    return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
-        [types.KeyboardButton(text="🛒 Открыть магазин/аукцион", web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/"))]
-    ])
+def main_kb(user_id=None):
+    # Если пользователь админ, открывать сразу админ-панель
+    if user_id in ADMIN_IDS:
+        return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
+            [types.KeyboardButton(text="🔑 Админ-панель", web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/admin?user_id={}".format(user_id)))]
+        ])
+    else:
+        return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
+            [types.KeyboardButton(text="🛒 Открыть магазин/аукцион", web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/?user_id={}".format(user_id) if user_id else "https://csgosaller-1.onrender.com/"))]
+        ])
 
 @router.message(Command("start"))
 async def start_cmd(message: types.Message):
-    await message.answer("Добро пожаловать!", reply_markup=main_kb())
+    user_id = message.from_user.id
+    await message.answer("Добро пожаловать!", reply_markup=main_kb(user_id))
 
 dp.include_router(router)
 
@@ -267,14 +274,21 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 router = Router()
 
-def main_kb():
-    return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
-        [types.KeyboardButton(text="🛒 Открыть магазин/аукцион", web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/"))]
-    ])
+def main_kb(user_id=None):
+    # Если пользователь админ, открывать сразу админ-панель
+    if user_id in ADMIN_IDS:
+        return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
+            [types.KeyboardButton(text="🔑 Админ-панель", web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/admin?user_id={}".format(user_id)))]
+        ])
+    else:
+        return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
+            [types.KeyboardButton(text="🛒 Открыть магазин/аукцион", web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/?user_id={}".format(user_id) if user_id else "https://csgosaller-1.onrender.com/"))]
+        ])
 
 @router.message(Command("start"))
 async def start_cmd(message: types.Message):
-    await message.answer("Добро пожаловать!", reply_markup=main_kb())
+    user_id = message.from_user.id
+    await message.answer("Добро пожаловать!", reply_markup=main_kb(user_id))
 
 dp.include_router(router)
 
@@ -834,3 +848,6 @@ if __name__ == '__main__':
     flask_process = multiprocessing.Process(target=run_flask)
     flask_process.start()
     run_aiogram()
+    async def main():
+        await dp.start_polling(bot)
+    asyncio.run(main())
