@@ -121,37 +121,29 @@ dp = Dispatcher()
 router = Router()
 
 def main_kb(user_id=None):
-    # Если пользователь админ, открывать сразу админ-панель
+    # Если пользователь админ, показывать кнопку "Админ-панель"
     if user_id in ADMIN_IDS:
         return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
             [types.KeyboardButton(
                 text="🔑 Админ-панель",
-                web_app=types.WebAppInfo(url=f"https://csgosaller-1.onrender.com/admin?user_id={user_id}")
+                web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/admin")
             )]
         ])
     else:
         return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
             [types.KeyboardButton(
                 text="🛒 Открыть магазин/аукцион",
-                web_app=types.WebAppInfo(url=f"https://csgosaller-1.onrender.com/?user_id={user_id}" if user_id else "https://csgosaller-1.onrender.com/")
+                web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/")
             )]
         ])
 
 @router.message(Command("start"))
 async def start_cmd(message: types.Message):
     user_id = message.from_user.id
-    if user_id in ADMIN_IDS:
-        await message.answer(
-            f"Добро пожаловать, администратор!\nВаш ID: <b>{user_id}</b>",
-            reply_markup=main_kb(user_id),
-            parse_mode="HTML"
-        )
-    else:
-        await message.answer(
-            f"Добро пожаловать!\nВаш ID: <b>{user_id}</b>",
-            reply_markup=main_kb(user_id),
-            parse_mode="HTML"
-        )
+    await message.answer(
+        "Добро пожаловать!",
+        reply_markup=main_kb(user_id)
+    )
 
 dp.include_router(router)
 
@@ -292,37 +284,29 @@ dp = Dispatcher()
 router = Router()
 
 def main_kb(user_id=None):
-    # Если пользователь админ, открывать сразу админ-панель
+    # Если пользователь админ, показывать кнопку "Админ-панель"
     if user_id in ADMIN_IDS:
         return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
             [types.KeyboardButton(
                 text="🔑 Админ-панель",
-                web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/admin?user_id={}".format(user_id)))
-            ]
+                web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/admin")
+            )]
         ])
     else:
         return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
             [types.KeyboardButton(
                 text="🛒 Открыть магазин/аукцион",
-                web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/?user_id={}".format(user_id) if user_id else "https://csgosaller-1.onrender.com/"))
-            ]
+                web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/")
+            )]
         ])
 
 @router.message(Command("start"))
 async def start_cmd(message: types.Message):
     user_id = message.from_user.id
-    if user_id in ADMIN_IDS:
-        await message.answer(
-            f"Добро пожаловать, администратор!\nВаш ID: <b>{user_id}</b>",
-            reply_markup=main_kb(user_id),
-            parse_mode="HTML"
-        )
-    else:
-        await message.answer(
-            f"Добро пожаловать!\nВаш ID: <b>{user_id}</b>",
-            reply_markup=main_kb(user_id),
-            parse_mode="HTML"
-        )
+    await message.answer(
+        "Добро пожаловать!",
+        reply_markup=main_kb(user_id)
+    )
 
 dp.include_router(router)
 
