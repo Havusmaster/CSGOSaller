@@ -94,6 +94,7 @@ init_db()
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 app.config['UPLOAD_FOLDER'] = 'static/images/'
+app.config['DEBUG'] = True
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Bootstrap шаблон
@@ -223,6 +224,14 @@ init_db()
 # =====================
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
+app.config['DEBUG'] = True
+
+@app.errorhandler(Exception)
+def handle_error(e):
+    import traceback
+    error_text = f"<h3 style='color:red'>Ошибка сервера:</h3><pre>{traceback.format_exc()}</pre>"
+    logging.error(traceback.format_exc())
+    return HEADER + f"<div class='container'>{error_text}</div>", 500
 
 # Bootstrap шаблон
 BOOTSTRAP = """
