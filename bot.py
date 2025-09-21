@@ -38,6 +38,7 @@ from aiogram import Router
 from aiogram.filters import Command
 import asyncio
 import multiprocessing
+import werkzeug
 
 # =====================
 # Логирование
@@ -45,13 +46,12 @@ import multiprocessing
 logging.basicConfig(filename="bot.log", level=logging.INFO, format="%(asctime)s %(message)s")
 
 # =====================
-# Инициализация базы данных
+# Инициализация базы данных (добавлено поле image)
 # =====================
 DB_PATH = "auction_shop.db"
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    # Таблица товаров
     c.execute("""
     CREATE TABLE IF NOT EXISTS products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,9 +59,9 @@ def init_db():
         description TEXT,
         price INTEGER,
         quantity INTEGER,
-        sold INTEGER DEFAULT 0
+        sold INTEGER DEFAULT 0,
+        image TEXT
     )""")
-    # Таблица лотов
     c.execute("""
     CREATE TABLE IF NOT EXISTS lots (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,7 +72,8 @@ def init_db():
         end_time INTEGER,
         current_price INTEGER,
         winner_id INTEGER,
-        active INTEGER DEFAULT 1
+        active INTEGER DEFAULT 1,
+        image TEXT
     )""")
     # Таблица ставок
     c.execute("""
@@ -88,10 +89,12 @@ def init_db():
 init_db()
 
 # =====================
-# Flask WebApp
+# Flask WebApp: добавлена поддержка фото
 # =====================
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
+app.config['UPLOAD_FOLDER'] = 'static/images/'
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Bootstrap шаблон
 BOOTSTRAP = """
@@ -185,7 +188,8 @@ def init_db():
         description TEXT,
         price INTEGER,
         quantity INTEGER,
-        sold INTEGER DEFAULT 0
+        sold INTEGER DEFAULT 0,
+        image TEXT
     )""")
     # Таблица лотов
     c.execute("""
@@ -198,7 +202,8 @@ def init_db():
         end_time INTEGER,
         current_price INTEGER,
         winner_id INTEGER,
-        active INTEGER DEFAULT 1
+        active INTEGER DEFAULT 1,
+        image TEXT
     )""")
     # Таблица ставок
     c.execute("""
@@ -335,10 +340,10 @@ def index():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     # Магазин
-    c.execute('SELECT id, name, description, price, quantity, sold FROM products WHERE sold=0 AND quantity>0')
+    c.execute('SELECT id, name, description, price, quantity, sold, image FROM products WHERE sold=0 AND quantity>0')
     products = c.fetchall()
     # Аукцион
-    c.execute('SELECT id, name, description, current_price, end_time, step, active FROM lots WHERE active=1')
+    c.execute('SELECT id, name, description, current_price, end_time, step, active, image FROM lots WHERE active=1')
     lots = c.fetchall()
     conn.close()
     html = HEADER + """
@@ -347,10 +352,12 @@ def index():
       <div class='row g-4'>
     """
     for p in products:
+        img_html = f"<img src='/static/images/{p[6]}' class='mb-2 w-100 rounded shadow-sm' style='max-height:180px;object-fit:cover;'>" if p[6] else ""
         html += f"""
         <div class='col-md-4'>
           <div class='card border-success h-100'>
             <div class='card-body'>
+              {img_html}
               <h5 class='card-title text-success'>🏷 {p[1]}</h5>
               <p class='card-text text-light'>📜 {p[2]}</p>
               <p class='mb-2'><span class='badge bg-warning text-dark'>💰 {p[3]}₽</span> <span class='badge bg-info text-dark'>📦 Осталось: {p[4]}</span></p>
@@ -365,10 +372,12 @@ def index():
     html += "</div><hr><h2 class='text-light mb-4'><span class='badge bg-primary fs-4'>🏆 Аукцион</span></h2><div class='row g-4'>"
     for l in lots:
         time_left = max(0, l[4] - int(time.time()))
+        img_html = f"<img src='/static/images/{l[7]}' class='mb-2 w-100 rounded shadow-sm' style='max-height:180px;object-fit:cover;'>" if l[7] else ""
         html += f"""
         <div class='col-md-6'>
           <div class='card border-primary h-100'>
             <div class='card-body'>
+              {img_html}
               <h5 class='card-title text-primary'>🏆 {l[1]}</h5>
               <p class='card-text text-light'>📜 {l[2]}</p>
               <p class='mb-2'><span class='badge bg-warning text-dark'>💰 Текущая ставка: {l[3]}₽</span></p>
@@ -490,7 +499,7 @@ def admin():
         return redirect('/login')
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute('SELECT id, name, description, price, quantity, sold FROM products')
+    c.execute('SELECT id, name, description, price, quantity, sold, image FROM products')
     products = c.fetchall()
     c.execute('SELECT id, name, description, current_price, end_time, step, active FROM lots')
     lots = c.fetchall()
@@ -499,11 +508,12 @@ def admin():
     <div class='container'>
       <h2 class='text-light mb-4'><span class='badge bg-dark fs-4'>📦 Управление товарами</span></h2>
       <table class='table table-dark table-striped table-bordered rounded shadow-sm'>
-        <tr><th>Название</th><th>Описание</th><th>Цена</th><th>Кол-во</th><th>Статус</th><th>Действия</th></tr>
+        <tr><th>Фото</th><th>Название</th><th>Описание</th><th>Цена</th><th>Кол-во</th><th>Статус</th><th>Действия</th></tr>
     """
     for p in products:
         status = '✅ Продан' if p[5] else '🟢 В продаже'
-        html += f"<tr><td>{p[1]}</td><td>{p[2]}</td><td>{p[3]}</td><td>{p[4]}</td><td>{status}</td><td>"
+        img_html = f"<img src='/static/images/{p[6]}' style='max-width:60px;max-height:60px;border-radius:8px;'>" if p[6] else ""
+        html += f"<tr><td>{img_html}</td><td>{p[1]}</td><td>{p[2]}</td><td>{p[3]}</td><td>{p[4]}</td><td>{status}</td><td>"
         if not p[5]:
             html += f"<form method='post' action='/mark_sold'><input type='hidden' name='product_id' value='{p[0]}'><button class='btn btn-success btn-sm mb-1'>✅ Продан</button></form>"
         else:
@@ -511,32 +521,35 @@ def admin():
         html += f"<form method='post' action='/delete_product'><input type='hidden' name='product_id' value='{p[0]}'><button class='btn btn-danger btn-sm mb-1'>🗑️ Удалить</button></form></td></tr>"
     html += "</table><hr><h2 class='text-light mb-4'><span class='badge bg-success fs-4'>➕ Добавить товар</span></h2>"
     html += """
-      <form method='post' action='/add_product' class='mb-4'>
+      <form method='post' action='/add_product' class='mb-4' enctype='multipart/form-data'>
         <input name='name' class='form-control mb-2' placeholder='Название' required>
         <input name='description' class='form-control mb-2' placeholder='Описание' required>
         <input name='price' type='number' class='form-control mb-2' placeholder='Цена' required>
         <input name='quantity' type='number' class='form-control mb-2' placeholder='Количество' required>
+        <input name='image' type='file' accept='image/*' class='form-control mb-2'>
         <button class='btn btn-primary w-100 shadow-sm'>➕ Добавить</button>
       </form>
       <hr><h2 class='text-light mb-4'><span class='badge bg-primary fs-4'>🏆 Управление лотами</span></h2>
       <table class='table table-dark table-striped table-bordered rounded shadow-sm'>
-        <tr><th>Название</th><th>Описание</th><th>Ставка</th><th>До конца</th><th>Статус</th><th>Действия</th></tr>
+        <tr><th>Фото</th><th>Название</th><th>Описание</th><th>Ставка</th><th>До конца</th><th>Статус</th><th>Действия</th></tr>
     """
     for l in lots:
         time_left = max(0, l[4] - int(time.time()))
         status = '🟢 Активен' if l[6] else '⛔ Остановлен'
-        html += f"<tr><td>{l[1]}</td><td>{l[2]}</td><td>{l[3]}</td><td>{time_left//60} мин {time_left%60} сек</td><td>{status}</td><td>"
+        img_html = f"<img src='/static/images/{l[7]}' style='max-width:60px;max-height:60px;border-radius:8px;'>" if l[7] else ""
+        html += f"<tr><td>{img_html}</td><td>{l[1]}</td><td>{l[2]}</td><td>{l[3]}</td><td>{time_left//60} мин {time_left%60} сек</td><td>{status}</td><td>"
         if l[6]:
             html += f"<form method='post' action='/stop_lot'><input type='hidden' name='lot_id' value='{l[0]}'><button class='btn btn-danger btn-sm mb-1'>⛔ Остановить</button></form>"
         html += f"<form method='post' action='/delete_lot'><input type='hidden' name='lot_id' value='{l[0]}'><button class='btn btn-secondary btn-sm mb-1'>🗑️ Удалить</button></form></td></tr>"
     html += "</table><hr><h2 class='text-light mb-4'><span class='badge bg-warning fs-4'>🏆 Создать лот</span></h2>"
     html += """
-      <form method='post' action='/add_lot' class='mb-4'>
+      <form method='post' action='/add_lot' class='mb-4' enctype='multipart/form-data'>
         <input name='name' class='form-control mb-2' placeholder='Название' required>
         <input name='description' class='form-control mb-2' placeholder='Описание' required>
         <input name='start_price' type='number' class='form-control mb-2' placeholder='Стартовая цена' required>
         <input name='step' type='number' class='form-control mb-2' placeholder='Шаг' required>
         <input name='minutes' type='number' class='form-control mb-2' placeholder='Время (мин)' required>
+        <input name='image' type='file' accept='image/*' class='form-control mb-2'>
         <button class='btn btn-primary w-100 shadow-sm'>🏆 Создать</button>
       </form>
       <hr><a href='/' class='btn btn-dark w-100 fs-5 shadow-sm'>⬅️ Назад</a>
@@ -544,9 +557,6 @@ def admin():
     """
     return html
 
-# =====================
-# Действия админа
-# =====================
 @app.route('/add_product', methods=['POST'])
 def add_product():
     if not is_admin(): return redirect('/login')
@@ -554,12 +564,17 @@ def add_product():
     desc = request.form['description']
     price = int(request.form['price'])
     qty = int(request.form['quantity'])
+    image_file = request.files.get('image')
+    image_name = None
+    if image_file and image_file.filename:
+        image_name = werkzeug.utils.secure_filename(image_file.filename)
+        image_file.save(os.path.join(app.config['UPLOAD_FOLDER'], image_name))
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute('INSERT INTO products (name, description, price, quantity) VALUES (?, ?, ?, ?)', (name, desc, price, qty))
+    c.execute('INSERT INTO products (name, description, price, quantity, image) VALUES (?, ?, ?, ?, ?)', (name, desc, price, qty, image_name))
     conn.commit()
     conn.close()
-    logging.info(f"Добавлен товар: {name}, {price}, {qty}")
+    logging.info(f"Добавлен товар: {name}, {price}, {qty}, {image_name}")
     return redirect('/admin')
 
 @app.route('/mark_sold', methods=['POST'])
@@ -603,13 +618,18 @@ def add_lot():
     start_price = int(request.form['start_price'])
     step = int(request.form['step'])
     minutes = int(request.form['minutes'])
+    image_file = request.files.get('image')
+    image_name = None
+    if image_file and image_file.filename:
+        image_name = werkzeug.utils.secure_filename(image_file.filename)
+        image_file.save(os.path.join(app.config['UPLOAD_FOLDER'], image_name))
     end_time = int(time.time()) + minutes * 60
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute('INSERT INTO lots (name, description, start_price, step, end_time, current_price) VALUES (?, ?, ?, ?, ?, ?)', (name, desc, start_price, step, end_time, start_price))
+    c.execute('INSERT INTO lots (name, description, start_price, step, end_time, current_price, image) VALUES (?, ?, ?, ?, ?, ?, ?)', (name, desc, start_price, step, end_time, start_price, image_name))
     conn.commit()
     conn.close()
-    logging.info(f"Создан лот: {name}, {start_price}, {step}, {minutes} мин")
+    logging.info(f"Создан лот: {name}, {start_price}, {step}, {minutes} мин, {image_name}")
     return redirect('/admin')
 
 @app.route('/stop_lot', methods=['POST'])
