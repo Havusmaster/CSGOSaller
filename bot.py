@@ -424,9 +424,12 @@ def index():
                 session['user_id'] = user_id
             except:
                 user_id = None
-    html = HEADER + """
+    html = HEADER + f"""
     <div class='container text-center'>
       <h2 class='text-light mb-4'><span class='badge bg-dark fs-4'>Добро пожаловать!</span></h2>
+      <div class='mb-3'>
+        <span class='badge bg-info fs-5'>Ваш ID: {user_id if user_id else 'Не определён'}</span>
+      </div>
       <div class='row justify-content-center mb-5'>
         <div class='col-md-6'>
           <a href='/shop' class='btn btn-success btn-lg w-100 mb-3 shadow-sm' style='font-size:1.5em;'>🛒 Магазин</a>
