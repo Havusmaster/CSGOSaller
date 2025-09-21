@@ -840,42 +840,18 @@ threading.Thread(target=auction_watcher, daemon=True).start()
 # Запуск Flask и Telegram-бота
 # =====================
 def run_flask():
-    port = int(os.environ.get('PORT', 10000))  # Изменено на 10000
+    port = int(os.environ.get('PORT', 10000))  # Ensure the correct port is used
     app.run(host='0.0.0.0', port=port)
 
 def run_aiogram():
-    async def main():
-        await dp.start_polling(bot)
-    asyncio.run(main())
+    import asyncio
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(dp.start_polling(bot))
 
 if __name__ == '__main__':
     flask_process = multiprocessing.Process(target=run_flask)
     flask_process.start()
-    run_aiogram()
-    async def main():
-        await dp.start_polling(bot)
-    asyncio.run(main())
 
-if __name__ == '__main__':
-    flask_process = multiprocessing.Process(target=run_flask)
-    flask_process.start()
+    # Run the Telegram bot in the main process
     run_aiogram()
-    async def main():
-        await dp.start_polling(bot)
-    asyncio.run(main())
-
-if __name__ == '__main__':
-    flask_process = multiprocessing.Process(target=run_flask)
-    flask_process.start()
-    run_aiogram()
-    async def main():
-        await dp.start_polling(bot)
-    asyncio.run(main())
-
-if __name__ == '__main__':
-    flask_process = multiprocessing.Process(target=run_flask)
-    flask_process.start()
-    run_aiogram()
-    async def main():
-        await dp.start_polling(bot)
-    asyncio.run(main())
