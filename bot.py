@@ -840,6 +840,7 @@ def run_aiogram():
     loop.run_until_complete(dp.start_polling(bot))
 
 if __name__ == '__main__':
+    # Run Flask in a separate process
     flask_process = multiprocessing.Process(target=run_flask)
     flask_process.start()
 
