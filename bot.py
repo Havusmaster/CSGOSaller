@@ -108,7 +108,7 @@ router = Router()
 
 def main_kb():
     return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
-        [types.KeyboardButton(text="🛒 Открыть магазин/аукцион", web_app=types.WebAppInfo(url="https://csgosaller.onrender.com/"))]
+        [types.KeyboardButton(text="🛒 Открыть магазин/аукцион", web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/"))]
     ])
 
 @router.message(Command("start"))
@@ -234,7 +234,7 @@ router = Router()
 
 def main_kb():
     return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
-        [types.KeyboardButton(text="🛒 Открыть магазин/аукцион", web_app=types.WebAppInfo(url="https://csgosaller.onrender.com/"))]
+        [types.KeyboardButton(text="🛒 Открыть магазин/аукцион", web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/"))]
     ])
 
 @router.message(Command("start"))
