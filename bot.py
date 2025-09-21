@@ -510,7 +510,7 @@ def admin():
     c = conn.cursor()
     c.execute('SELECT id, name, description, price, quantity, sold, image FROM products')
     products = c.fetchall()
-    c.execute('SELECT id, name, description, current_price, end_time, step, active FROM lots')
+    c.execute('SELECT id, name, description, current_price, end_time, step, active, image FROM lots')  # <-- добавлен image
     lots = c.fetchall()
     conn.close()
     html = HEADER + """
