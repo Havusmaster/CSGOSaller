@@ -289,11 +289,19 @@ import os
 # HTML-шаблоны
 # =====================
 HEADER = BOOTSTRAP + """
-<nav class='navbar navbar-dark bg-dark mb-4'>
+<nav class='navbar navbar-expand-lg navbar-dark bg-gradient bg-dark shadow-lg mb-4'>
   <div class='container-fluid'>
-    <span class='navbar-brand mb-0 h1'>🛒 Магазин & 🏆 Аукцион</span>
+    <span class='navbar-brand mb-0 h1 display-6'>🛒 <b>CSGO2 Магазин & Аукцион</b></span>
   </div>
 </nav>
+<style>
+body { background: linear-gradient(135deg, #232526 0%, #414345 100%); min-height:100vh; }
+.card { box-shadow: 0 4px 24px rgba(0,0,0,0.12); border-radius: 1rem; }
+.btn { font-size: 1.1em; font-weight: 500; }
+.card-title { font-size: 1.3em; font-weight: bold; }
+hr { border-top: 2px solid #444; }
+.table th, .table td { vertical-align: middle; }
+</style>
 """
 
 # =====================
@@ -335,45 +343,45 @@ def index():
     conn.close()
     html = HEADER + """
     <div class='container'>
-      <h2>🛒 Магазин</h2>
-      <div class='row'>
+      <h2 class='text-light mb-4'><span class='badge bg-success fs-4'>🛒 Магазин</span></h2>
+      <div class='row g-4'>
     """
     for p in products:
         html += f"""
         <div class='col-md-4'>
-          <div class='card mb-3'>
+          <div class='card border-success h-100'>
             <div class='card-body'>
-              <h5 class='card-title'>🏷 {p[1]}</h5>
-              <p class='card-text'>📜 {p[2]}</p>
-              <p>💰 <b>{p[3]}₽</b> | 📦 Осталось: {p[4]}</p>
+              <h5 class='card-title text-success'>🏷 {p[1]}</h5>
+              <p class='card-text text-light'>📜 {p[2]}</p>
+              <p class='mb-2'><span class='badge bg-warning text-dark'>💰 {p[3]}₽</span> <span class='badge bg-info text-dark'>📦 Осталось: {p[4]}</span></p>
               <form method='post' action='/buy'>
                 <input type='hidden' name='product_id' value='{p[0]}'>
-                <button class='btn btn-success'>Купить</button>
+                <button class='btn btn-success w-100 shadow-sm'>🛒 Купить</button>
               </form>
             </div>
           </div>
         </div>
         """
-    html += "</div><hr><h2>🏆 Аукцион</h2><div class='row'>"
+    html += "</div><hr><h2 class='text-light mb-4'><span class='badge bg-primary fs-4'>🏆 Аукцион</span></h2><div class='row g-4'>"
     for l in lots:
         time_left = max(0, l[4] - int(time.time()))
         html += f"""
         <div class='col-md-6'>
-          <div class='card mb-3'>
+          <div class='card border-primary h-100'>
             <div class='card-body'>
-              <h5 class='card-title'>🏆 {l[1]}</h5>
-              <p class='card-text'>📜 {l[2]}</p>
-              <p>💰 Текущая ставка: <b>{l[3]}₽</b></p>
-              <p>⏳ До конца: {time_left//60} мин {time_left%60} сек</p>
+              <h5 class='card-title text-primary'>🏆 {l[1]}</h5>
+              <p class='card-text text-light'>📜 {l[2]}</p>
+              <p class='mb-2'><span class='badge bg-warning text-dark'>💰 Текущая ставка: {l[3]}₽</span></p>
+              <p class='mb-2'><span class='badge bg-secondary'>⏳ До конца: {time_left//60} мин {time_left%60} сек</span></p>
               <form method='post' action='/bid'>
                 <input type='hidden' name='lot_id' value='{l[0]}'>
                 <input type='hidden' name='step' value='{l[5]}'>
-                <button class='btn btn-warning'>Ставка +{l[5]}₽</button>
+                <button class='btn btn-warning w-100 shadow-sm'>🔼 Ставка +{l[5]}₽</button>
               </form>
               <form method='post' action='/bid_custom' class='mt-2'>
                 <input type='hidden' name='lot_id' value='{l[0]}'>
                 <input type='number' name='amount' class='form-control mb-2' placeholder='Ввести сумму' min='{l[3]+l[5]}' required>
-                <button class='btn btn-info'>Ввести сумму</button>
+                <button class='btn btn-info w-100 shadow-sm'>💸 Ввести сумму</button>
               </form>
             </div>
           </div>
@@ -381,9 +389,9 @@ def index():
         """
     html += "</div>"
     if user_id in ADMIN_IDS:
-        html += "<hr><a href='/admin' class='btn btn-dark'>🔑 Админ-панель</a>"
+        html += "<hr><a href='/admin' class='btn btn-dark w-100 fs-5 shadow-sm'>🔑 Админ-панель</a>"
     else:
-        html += "<hr><a href='/login' class='btn btn-secondary'>Войти как админ</a>"
+        html += "<hr><a href='/login' class='btn btn-secondary w-100 fs-5 shadow-sm'>Войти как админ</a>"
     html += "</div>"
     return html
 
@@ -489,29 +497,29 @@ def admin():
     conn.close()
     html = HEADER + """
     <div class='container'>
-      <h2>📦 Управление товарами</h2>
-      <table class='table'>
+      <h2 class='text-light mb-4'><span class='badge bg-dark fs-4'>📦 Управление товарами</span></h2>
+      <table class='table table-dark table-striped table-bordered rounded shadow-sm'>
         <tr><th>Название</th><th>Описание</th><th>Цена</th><th>Кол-во</th><th>Статус</th><th>Действия</th></tr>
     """
     for p in products:
         status = '✅ Продан' if p[5] else '🟢 В продаже'
         html += f"<tr><td>{p[1]}</td><td>{p[2]}</td><td>{p[3]}</td><td>{p[4]}</td><td>{status}</td><td>"
         if not p[5]:
-            html += f"<form method='post' action='/mark_sold'><input type='hidden' name='product_id' value='{p[0]}'><button class='btn btn-success btn-sm'>Продан</button></form>"
+            html += f"<form method='post' action='/mark_sold'><input type='hidden' name='product_id' value='{p[0]}'><button class='btn btn-success btn-sm mb-1'>✅ Продан</button></form>"
         else:
-            html += f"<form method='post' action='/mark_unsold'><input type='hidden' name='product_id' value='{p[0]}'><button class='btn btn-warning btn-sm'>Не продан</button></form>"
-        html += f"<form method='post' action='/delete_product'><input type='hidden' name='product_id' value='{p[0]}'><button class='btn btn-danger btn-sm'>Удалить</button></form></td></tr>"
-    html += "</table><hr><h2>➕ Добавить товар</h2>"
+            html += f"<form method='post' action='/mark_unsold'><input type='hidden' name='product_id' value='{p[0]}'><button class='btn btn-warning btn-sm mb-1'>❌ Не продан</button></form>"
+        html += f"<form method='post' action='/delete_product'><input type='hidden' name='product_id' value='{p[0]}'><button class='btn btn-danger btn-sm mb-1'>🗑️ Удалить</button></form></td></tr>"
+    html += "</table><hr><h2 class='text-light mb-4'><span class='badge bg-success fs-4'>➕ Добавить товар</span></h2>"
     html += """
-      <form method='post' action='/add_product'>
+      <form method='post' action='/add_product' class='mb-4'>
         <input name='name' class='form-control mb-2' placeholder='Название' required>
         <input name='description' class='form-control mb-2' placeholder='Описание' required>
         <input name='price' type='number' class='form-control mb-2' placeholder='Цена' required>
         <input name='quantity' type='number' class='form-control mb-2' placeholder='Количество' required>
-        <button class='btn btn-primary'>Добавить</button>
+        <button class='btn btn-primary w-100 shadow-sm'>➕ Добавить</button>
       </form>
-      <hr><h2>🏆 Управление лотами</h2>
-      <table class='table'>
+      <hr><h2 class='text-light mb-4'><span class='badge bg-primary fs-4'>🏆 Управление лотами</span></h2>
+      <table class='table table-dark table-striped table-bordered rounded shadow-sm'>
         <tr><th>Название</th><th>Описание</th><th>Ставка</th><th>До конца</th><th>Статус</th><th>Действия</th></tr>
     """
     for l in lots:
@@ -519,19 +527,19 @@ def admin():
         status = '🟢 Активен' if l[6] else '⛔ Остановлен'
         html += f"<tr><td>{l[1]}</td><td>{l[2]}</td><td>{l[3]}</td><td>{time_left//60} мин {time_left%60} сек</td><td>{status}</td><td>"
         if l[6]:
-            html += f"<form method='post' action='/stop_lot'><input type='hidden' name='lot_id' value='{l[0]}'><button class='btn btn-danger btn-sm'>Остановить</button></form>"
-        html += f"<form method='post' action='/delete_lot'><input type='hidden' name='lot_id' value='{l[0]}'><button class='btn btn-secondary btn-sm'>Удалить</button></form></td></tr>"
-    html += "</table><hr><h2>🏆 Создать лот</h2>"
+            html += f"<form method='post' action='/stop_lot'><input type='hidden' name='lot_id' value='{l[0]}'><button class='btn btn-danger btn-sm mb-1'>⛔ Остановить</button></form>"
+        html += f"<form method='post' action='/delete_lot'><input type='hidden' name='lot_id' value='{l[0]}'><button class='btn btn-secondary btn-sm mb-1'>🗑️ Удалить</button></form></td></tr>"
+    html += "</table><hr><h2 class='text-light mb-4'><span class='badge bg-warning fs-4'>🏆 Создать лот</span></h2>"
     html += """
-      <form method='post' action='/add_lot'>
+      <form method='post' action='/add_lot' class='mb-4'>
         <input name='name' class='form-control mb-2' placeholder='Название' required>
         <input name='description' class='form-control mb-2' placeholder='Описание' required>
         <input name='start_price' type='number' class='form-control mb-2' placeholder='Стартовая цена' required>
         <input name='step' type='number' class='form-control mb-2' placeholder='Шаг' required>
         <input name='minutes' type='number' class='form-control mb-2' placeholder='Время (мин)' required>
-        <button class='btn btn-primary'>Создать</button>
+        <button class='btn btn-primary w-100 shadow-sm'>🏆 Создать</button>
       </form>
-      <hr><a href='/' class='btn btn-dark'>Назад</a>
+      <hr><a href='/' class='btn btn-dark w-100 fs-5 shadow-sm'>⬅️ Назад</a>
     </div>
     """
     return html
