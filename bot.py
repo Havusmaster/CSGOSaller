@@ -123,18 +123,18 @@ router = Router()
 def main_kb(user_id=None):
     # Если пользователь админ, открывать сразу админ-панель
     if user_id in ADMIN_IDS:
-        return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[[
-            types.KeyboardButton(
+        return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
+            [types.KeyboardButton(
                 text="🔑 Админ-панель",
                 web_app=types.WebAppInfo(url=f"https://csgosaller-1.onrender.com/admin?user_id={user_id}")
-            )
-        ]])
+            )]
+        ])
     else:
-        return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[[
-            types.KeyboardButton(
+        return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
+            [types.KeyboardButton(
                 text="🛒 Открыть магазин/аукцион",
                 web_app=types.WebAppInfo(url=f"https://csgosaller-1.onrender.com/?user_id={user_id}" if user_id else "https://csgosaller-1.onrender.com/")
-            )
+            )]
         ])
 
 @router.message(Command("start"))
@@ -295,11 +295,17 @@ def main_kb(user_id=None):
     # Если пользователь админ, открывать сразу админ-панель
     if user_id in ADMIN_IDS:
         return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
-            [types.KeyboardButton(text="🔑 Админ-панель", web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/admin?user_id={}".format(user_id)))]
+            [types.KeyboardButton(
+                text="🔑 Админ-панель",
+                web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/admin?user_id={}".format(user_id)))
+            ]
         ])
     else:
         return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
-            [types.KeyboardButton(text="🛒 Открыть магазин/аукцион", web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/?user_id={}".format(user_id) if user_id else "https://csgosaller-1.onrender.com/"))]
+            [types.KeyboardButton(
+                text="🛒 Открыть магазин/аукцион",
+                web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/?user_id={}".format(user_id) if user_id else "https://csgosaller-1.onrender.com/"))
+            ]
         ])
 
 @router.message(Command("start"))
