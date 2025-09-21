@@ -23,7 +23,7 @@ WebApp:
 # Конфиг
 # =====================
 BOT_TOKEN = "7504123410:AAEznGqRafbyrBx2e34HzsxztWV201HRMxE"  # Замените на реальный токен
-ADMIN_IDS = [5266027747]
+ADMIN_IDS = [1939282952, 5266027747]
 
 # =====================
 # Импорт библиотек
@@ -82,6 +82,16 @@ def init_db():
         lot_id INTEGER,
         user_id INTEGER,
         amount INTEGER,
+        time INTEGER
+    )""")
+    # Таблица покупок
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS purchases (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        product_id INTEGER,
+        name TEXT,
+        price INTEGER,
+        buyer TEXT,
         time INTEGER
     )""")
     conn.commit()
@@ -213,6 +223,16 @@ def init_db():
         lot_id INTEGER,
         user_id INTEGER,
         amount INTEGER,
+        time INTEGER
+    )""")
+    # Таблица покупок
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS purchases (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        product_id INTEGER,
+        name TEXT,
+        price INTEGER,
+        buyer TEXT,
         time INTEGER
     )""")
     conn.commit()
@@ -524,6 +544,9 @@ def buy():
     c.execute('UPDATE products SET quantity=quantity-1 WHERE id=?', (pid,))
     if prod[2] == 1:
         c.execute('UPDATE products SET sold=1 WHERE id=?', (pid,))
+    # Запись покупки в purchases
+    c.execute('INSERT INTO purchases (product_id, name, price, buyer, time) VALUES (?, ?, ?, ?, ?)',
+              (pid, prod[0], prod[1], str(user_id), int(time.time())))
     conn.commit()
     conn.close()
     notify_admins_purchase(prod[0], prod[1], user_id)
@@ -592,6 +615,9 @@ def admin():
     products = c.fetchall()
     c.execute('SELECT id, name, description, current_price, end_time, step, active, image FROM lots')
     lots = c.fetchall()
+    # Получить последние покупки
+    c.execute('SELECT id, product_id, name, price, buyer, time FROM purchases ORDER BY time DESC LIMIT 20')
+    purchases = c.fetchall()
     conn.close()
     html = HEADER + """
     <div class='container'>
@@ -630,20 +656,18 @@ def admin():
         if l[6]:
             html += f"<form method='post' action='/stop_lot'><input type='hidden' name='lot_id' value='{l[0]}'><button class='btn btn-danger btn-sm mb-1'>⛔ Остановить</button></form>"
         html += f"<form method='post' action='/delete_lot'><input type='hidden' name='lot_id' value='{l[0]}'><button class='btn btn-secondary btn-sm mb-1'>🗑️ Удалить</button></form></td></tr>"
-    html += "</table><hr><h2 class='text-light mb-4'><span class='badge bg-warning fs-4'>🏆 Создать лот</span></h2>"
+    html += "</table><hr>"
+    # Покупки
     html += """
-      <form method='post' action='/add_lot' class='mb-4' enctype='multipart/form-data'>
-        <input name='name' class='form-control mb-2' placeholder='Название' required>
-        <input name='description' class='form-control mb-2' placeholder='Описание' required>
-        <input name='start_price' type='number' class='form-control mb-2' placeholder='Стартовая цена' required>
-        <input name='step' type='number' class='form-control mb-2' placeholder='Шаг' required>
-        <input name='minutes' type='number' class='form-control mb-2' placeholder='Время (мин)' required>
-        <input name='image' type='file' accept='image/*' class='form-control mb-2'>
-        <button class='btn btn-primary w-100 shadow-sm'>🏆 Создать</button>
-      </form>
-      <hr><a href='/' class='btn btn-dark w-100 fs-5 shadow-sm'>⬅️ Назад</a>
-    </div>
+      <h2 class='text-light mb-4'><span class='badge bg-warning fs-4'>🛒 Последние покупки</span></h2>
+      <table class='table table-dark table-striped table-bordered rounded shadow-sm'>
+        <tr><th>ID</th><th>Товар</th><th>Цена</th><th>Покупатель</th><th>Время</th></tr>
     """
+    for pur in purchases:
+        dt = time.strftime('%d.%m.%Y %H:%M', time.localtime(pur[5]))
+        html += f"<tr><td>{pur[0]}</td><td>{pur[2]}</td><td>{pur[3]}₽</td><td>{pur[4]}</td><td>{dt}</td></tr>"
+    html += "</table>"
+    html += "<hr><a href='/' class='btn btn-dark w-100 fs-5 shadow-sm'>⬅️ Назад</a></div>"
     return html
 
 @app.route('/add_product', methods=['POST'])
