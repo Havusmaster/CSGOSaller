@@ -225,6 +225,7 @@ init_db()
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 app.config['DEBUG'] = True
+app.config['UPLOAD_FOLDER'] = 'static/images/'  # <-- добавьте эту строку
 
 @app.errorhandler(Exception)
 def handle_error(e):
