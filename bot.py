@@ -798,7 +798,7 @@ threading.Thread(target=auction_watcher, daemon=True).start()
 # Запуск Flask и Telegram-бота
 # =====================
 def run_flask():
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 10000))  # Изменено на 10000
     app.run(host='0.0.0.0', port=port)
 
 def run_aiogram():
