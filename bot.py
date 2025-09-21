@@ -368,10 +368,15 @@ def is_admin():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    user_id = session.get('user_id', None)
+    # Если уже админ, сразу в админку
+    if user_id in ADMIN_IDS:
+        return redirect(url_for('admin'))
     if request.method == 'POST':
         user_id = int(request.form.get('user_id', 0))
         session['user_id'] = user_id
         return redirect(url_for('admin')) if user_id in ADMIN_IDS else redirect(url_for('index'))
+    # Только для не-админов показывать форму
     return HEADER + """
     <div class='container'>
       <h3>Вход по ID</h3>
