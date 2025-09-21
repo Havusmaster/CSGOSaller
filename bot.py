@@ -322,6 +322,41 @@ input, select, textarea { background: #222 !important; color: #eee !important; b
 .form-control:focus { background: #222 !important; color: #fff !important; border-color: #444 !important; }
 .navbar, .navbar-brand { background: #111 !important; }
 .badge { border-radius: 0.5em; }
+@media (max-width: 768px) {
+  .container { padding-bottom: 80px !important; }
+  .navbar-brand { font-size: 1.1em !important; }
+  .card-title { font-size: 1.1em !important; }
+  .btn { font-size: 1em !important; }
+}
+.bottom-nav {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  background: #181818;
+  border-top: 2px solid #222;
+  z-index: 9999;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  height: 60px;
+}
+.bottom-nav a {
+  flex: 1;
+  text-align: center;
+  color: #eee !important;
+  font-size: 1.2em;
+  padding: 10px 0;
+  text-decoration: none;
+  border: none;
+  background: none;
+}
+.bottom-nav a.active, .bottom-nav a:active {
+  color: #fff !important;
+  font-weight: bold;
+  background: #222;
+}
+@media (min-width: 769px) {
+  .bottom-nav { display: none; }
+}
 </style>
 """
 
@@ -388,8 +423,8 @@ def shop():
     for p in products:
         img_html = f"<img src='/static/images/{p[6]}' class='mb-2 w-100 rounded shadow-sm' style='max-height:180px;object-fit:cover;'>" if p[6] else ""
         html += f"""
-        <div class='col-md-4'>
-          <div class='card border-success h-100'>
+        <div class='col-12 col-sm-6 col-md-4'>
+          <div class='card border-success h-100 mb-3'>
             <div class='card-body'>
               {img_html}
               <h5 class='card-title text-success'>🏷 {p[1]}</h5>
@@ -405,7 +440,7 @@ def shop():
         """
     html += "</div><hr>"
     html += """
-      <div class='row mt-4'>
+      <div class='row mt-4 d-none d-md-flex'>
         <div class='col-md-6'>
           <a href='/auction' class='btn btn-primary w-100 fs-5 shadow-sm'>🏆 Перейти к аукциону</a>
         </div>
@@ -414,6 +449,11 @@ def shop():
         </div>
       </div>
     </div>
+    <nav class='bottom-nav'>
+      <a href='/shop' class='active'>🛒</a>
+      <a href='/auction'>🏆</a>
+      <a href='/'>🏠</a>
+    </nav>
     """
     return html
 
@@ -434,8 +474,8 @@ def auction():
         time_left = max(0, l[4] - int(time.time()))
         img_html = f"<img src='/static/images/{l[7]}' class='mb-2 w-100 rounded shadow-sm' style='max-height:180px;object-fit:cover;'>" if l[7] else ""
         html += f"""
-        <div class='col-md-6'>
-          <div class='card border-primary h-100'>
+        <div class='col-12 col-sm-6'>
+          <div class='card border-primary h-100 mb-3'>
             <div class='card-body'>
               {img_html}
               <h5 class='card-title text-primary'>🏆 {l[1]}</h5>
@@ -458,7 +498,7 @@ def auction():
         """
     html += "</div><hr>"
     html += """
-      <div class='row mt-4'>
+      <div class='row mt-4 d-none d-md-flex'>
         <div class='col-md-6'>
           <a href='/shop' class='btn btn-success w-100 fs-5 shadow-sm'>🛒 Перейти в магазин</a>
         </div>
@@ -467,6 +507,11 @@ def auction():
         </div>
       </div>
     </div>
+    <nav class='bottom-nav'>
+      <a href='/shop'>🛒</a>
+      <a href='/auction' class='active'>🏆</a>
+      <a href='/'>🏠</a>
+    </nav>
     """
     return html
 
