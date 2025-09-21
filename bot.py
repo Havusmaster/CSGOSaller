@@ -401,6 +401,15 @@ def login():
 @app.route('/')
 def index():
     user_id = session.get('user_id', None)
+    # Попробовать получить user_id из аргументов запроса, если нет в сессии (для Telegram WebApp)
+    if not user_id:
+        user_id = request.args.get('user_id', None)
+        if user_id:
+            try:
+                user_id = int(user_id)
+                session['user_id'] = user_id
+            except:
+                user_id = None
     html = HEADER + """
     <div class='container text-center'>
       <h2 class='text-light mb-4'><span class='badge bg-dark fs-4'>Добро пожаловать!</span></h2>
