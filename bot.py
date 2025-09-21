@@ -353,14 +353,32 @@ def login():
 @app.route('/')
 def index():
     user_id = session.get('user_id', None)
+    html = HEADER + """
+    <div class='container text-center'>
+      <h2 class='text-light mb-4'><span class='badge bg-dark fs-4'>Добро пожаловать!</span></h2>
+      <div class='row justify-content-center mb-5'>
+        <div class='col-md-6'>
+          <a href='/shop' class='btn btn-success btn-lg w-100 mb-3 shadow-sm' style='font-size:1.5em;'>🛒 Магазин</a>
+        </div>
+        <div class='col-md-6'>
+          <a href='/auction' class='btn btn-primary btn-lg w-100 mb-3 shadow-sm' style='font-size:1.5em;'>🏆 Аукцион</a>
+        </div>
+      </div>
+    """
+    if user_id in ADMIN_IDS:
+        html += "<a href='/admin' class='btn btn-dark w-100 fs-5 shadow-sm'>🔑 Админ-панель</a>"
+    else:
+        html += "<a href='/login' class='btn btn-secondary w-100 fs-5 shadow-sm'>Войти как админ</a>"
+    html += "</div>"
+    return html
+
+@app.route('/shop')
+def shop():
+    user_id = session.get('user_id', None)
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    # Магазин
     c.execute('SELECT id, name, description, price, quantity, sold, image FROM products WHERE sold=0 AND quantity>0')
     products = c.fetchall()
-    # Аукцион
-    c.execute('SELECT id, name, description, current_price, end_time, step, active, image FROM lots WHERE active=1')
-    lots = c.fetchall()
     conn.close()
     html = HEADER + """
     <div class='container'>
@@ -385,7 +403,33 @@ def index():
           </div>
         </div>
         """
-    html += "</div><hr><h2 class='text-light mb-4'><span class='badge bg-primary fs-4'>🏆 Аукцион</span></h2><div class='row g-4'>"
+    html += "</div><hr>"
+    html += """
+      <div class='row mt-4'>
+        <div class='col-md-6'>
+          <a href='/auction' class='btn btn-primary w-100 fs-5 shadow-sm'>🏆 Перейти к аукциону</a>
+        </div>
+        <div class='col-md-6'>
+          <a href='/' class='btn btn-dark w-100 fs-5 shadow-sm'>⬅️ Назад</a>
+        </div>
+      </div>
+    </div>
+    """
+    return html
+
+@app.route('/auction')
+def auction():
+    user_id = session.get('user_id', None)
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('SELECT id, name, description, current_price, end_time, step, active, image FROM lots WHERE active=1')
+    lots = c.fetchall()
+    conn.close()
+    html = HEADER + """
+    <div class='container'>
+      <h2 class='text-light mb-4'><span class='badge bg-primary fs-4'>🏆 Аукцион</span></h2>
+      <div class='row g-4'>
+    """
     for l in lots:
         time_left = max(0, l[4] - int(time.time()))
         img_html = f"<img src='/static/images/{l[7]}' class='mb-2 w-100 rounded shadow-sm' style='max-height:180px;object-fit:cover;'>" if l[7] else ""
@@ -412,12 +456,18 @@ def index():
           </div>
         </div>
         """
-    html += "</div>"
-    if user_id in ADMIN_IDS:
-        html += "<hr><a href='/admin' class='btn btn-dark w-100 fs-5 shadow-sm'>🔑 Админ-панель</a>"
-    else:
-        html += "<hr><a href='/login' class='btn btn-secondary w-100 fs-5 shadow-sm'>Войти как админ</a>"
-    html += "</div>"
+    html += "</div><hr>"
+    html += """
+      <div class='row mt-4'>
+        <div class='col-md-6'>
+          <a href='/shop' class='btn btn-success w-100 fs-5 shadow-sm'>🛒 Перейти в магазин</a>
+        </div>
+        <div class='col-md-6'>
+          <a href='/' class='btn btn-dark w-100 fs-5 shadow-sm'>⬅️ Назад</a>
+        </div>
+      </div>
+    </div>
+    """
     return html
 
 # =====================
