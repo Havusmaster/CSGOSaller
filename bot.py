@@ -304,18 +304,24 @@ import os
 # HTML-шаблоны
 # =====================
 HEADER = BOOTSTRAP + """
-<nav class='navbar navbar-expand-lg navbar-dark bg-gradient bg-dark shadow-lg mb-4'>
+<nav class='navbar navbar-expand-lg navbar-dark bg-dark shadow-lg mb-4'>
   <div class='container-fluid'>
     <span class='navbar-brand mb-0 h1 display-6'>🛒 <b>CSGO2 Магазин & Аукцион</b></span>
   </div>
 </nav>
 <style>
-body { background: linear-gradient(135deg, #232526 0%, #414345 100%); min-height:100vh; }
-.card { box-shadow: 0 4px 24px rgba(0,0,0,0.12); border-radius: 1rem; }
-.btn { font-size: 1.1em; font-weight: 500; }
-.card-title { font-size: 1.3em; font-weight: bold; }
-hr { border-top: 2px solid #444; }
-.table th, .table td { vertical-align: middle; }
+body { background: #111 !important; color: #eee !important; min-height:100vh; }
+.card { background: #181818 !important; box-shadow: 0 4px 24px rgba(0,0,0,0.25); border-radius: 1rem; border: none; }
+.btn { font-size: 1.1em; font-weight: 500; border-radius: 0.7em; }
+.card-title { font-size: 1.3em; font-weight: bold; color: #fff; }
+hr { border-top: 2px solid #222; }
+.table { background: #181818 !important; color: #eee !important; }
+.table th, .table td { vertical-align: middle; border-color: #222 !important; }
+.table-striped > tbody > tr:nth-of-type(odd) { background-color: #222 !important; }
+input, select, textarea { background: #222 !important; color: #eee !important; border: 1px solid #333 !important; }
+.form-control:focus { background: #222 !important; color: #fff !important; border-color: #444 !important; }
+.navbar, .navbar-brand { background: #111 !important; }
+.badge { border-radius: 0.5em; }
 </style>
 """
 
@@ -454,16 +460,9 @@ def bid():
     if not lot:
         conn.close()
         return HEADER + "<div class='container'><div class='alert alert-danger'>Лот недоступен.</div></div>"
-    # Ограничение: 1 ставка в 10 секунд
-    c.execute('SELECT time FROM bids WHERE user_id=? AND lot_id=? ORDER BY time DESC LIMIT 1', (user_id, lot_id))
-    last_bid = c.fetchone()
-    now = int(time.time())
-    if last_bid and now - last_bid[0] < 10:
-        conn.close()
-        return HEADER + "<div class='container'><div class='alert alert-warning'>Можно делать ставку раз в 10 секунд.</div></div>"
     new_price = lot[0] + step
     c.execute('UPDATE lots SET current_price=? WHERE id=?', (new_price, lot_id))
-    c.execute('INSERT INTO bids (lot_id, user_id, amount, time) VALUES (?, ?, ?, ?)', (lot_id, user_id, new_price, now))
+    c.execute('INSERT INTO bids (lot_id, user_id, amount, time) VALUES (?, ?, ?, ?)', (lot_id, user_id, new_price, int(time.time())))
     conn.commit()
     conn.close()
     logging.info(f"Ставка: Лот {lot_id}, {new_price}, {user_id}")
@@ -486,15 +485,8 @@ def bid_custom():
     if not lot or amount < lot[0] + lot[2]:
         conn.close()
         return HEADER + "<div class='container'><div class='alert alert-danger'>Сумма слишком мала.</div></div>"
-    # Ограничение: 1 ставка в 10 секунд
-    c.execute('SELECT time FROM bids WHERE user_id=? AND lot_id=? ORDER BY time DESC LIMIT 1', (user_id, lot_id))
-    last_bid = c.fetchone()
-    now = int(time.time())
-    if last_bid and now - last_bid[0] < 10:
-        conn.close()
-        return HEADER + "<div class='container'><div class='alert alert-warning'>Можно делать ставку раз в 10 секунд.</div></div>"
     c.execute('UPDATE lots SET current_price=? WHERE id=?', (amount, lot_id))
-    c.execute('INSERT INTO bids (lot_id, user_id, amount, time) VALUES (?, ?, ?, ?)', (lot_id, user_id, amount, now))
+    c.execute('INSERT INTO bids (lot_id, user_id, amount, time) VALUES (?, ?, ?, ?)', (lot_id, user_id, amount, int(time.time())))
     conn.commit()
     conn.close()
     logging.info(f"Ставка: Лот {lot_id}, {amount}, {user_id}")
@@ -706,6 +698,14 @@ def run_flask():
     app.run(host='0.0.0.0', port=port)
 
 def run_aiogram():
+    async def main():
+        await dp.start_polling(bot)
+    asyncio.run(main())
+
+if __name__ == '__main__':
+    flask_process = multiprocessing.Process(target=run_flask)
+    flask_process.start()
+    run_aiogram()
     async def main():
         await dp.start_polling(bot)
     asyncio.run(main())
