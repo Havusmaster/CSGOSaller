@@ -422,8 +422,8 @@ def index():
         </div>
       </div>
     """
-    # Кнопка "Админ-панель" показывается только для админов
-    if user_id in ADMIN_IDS:
+    # Кнопка "Админ-панель" показывается только если НЕ из Telegram WebApp и только для админов
+    if user_id in ADMIN_IDS and not request.args.get('tgWebApp', None):
         html += "<a href='/admin' class='btn btn-dark w-100 fs-5 shadow-sm'>🔑 Админ-панель</a>"
     html += "</div>"
     return html
@@ -461,20 +461,12 @@ def shop():
         """
     html += "</div><hr>"
     html += """
-      <div class='row mt-4 d-none d-md-flex'>
-        <div class='col-md-6'>
-          <a href='/auction' class='btn btn-primary w-100 fs-5 shadow-sm'>🏆 Перейти к аукциону</a>
-        </div>
-        <div class='col-md-6'>
+      <div class='row mt-4'>
+        <div class='col-12'>
           <a href='/' class='btn btn-dark w-100 fs-5 shadow-sm'>⬅️ Назад</a>
         </div>
       </div>
     </div>
-    <nav class='bottom-nav'>
-      <a href='/shop' class='active'>🛒</a>
-      <a href='/auction'>🏆</a>
-      <a href='/'>🏠</a>
-    </nav>
     """
     return html
 
@@ -519,20 +511,12 @@ def auction():
         """
     html += "</div><hr>"
     html += """
-      <div class='row mt-4 d-none d-md-flex'>
-        <div class='col-md-6'>
-          <a href='/shop' class='btn btn-success w-100 fs-5 shadow-sm'>🛒 Перейти в магазин</a>
-        </div>
-        <div class='col-md-6'>
+      <div class='row mt-4'>
+        <div class='col-12'>
           <a href='/' class='btn btn-dark w-100 fs-5 shadow-sm'>⬅️ Назад</a>
         </div>
       </div>
     </div>
-    <nav class='bottom-nav'>
-      <a href='/shop'>🛒</a>
-      <a href='/auction' class='active'>🏆</a>
-      <a href='/'>🏠</a>
-    </nav>
     """
     return html
 
@@ -818,6 +802,22 @@ def run_flask():
     app.run(host='0.0.0.0', port=port)
 
 def run_aiogram():
+    async def main():
+        await dp.start_polling(bot)
+    asyncio.run(main())
+
+if __name__ == '__main__':
+    flask_process = multiprocessing.Process(target=run_flask)
+    flask_process.start()
+    run_aiogram()
+    async def main():
+        await dp.start_polling(bot)
+    asyncio.run(main())
+
+if __name__ == '__main__':
+    flask_process = multiprocessing.Process(target=run_flask)
+    flask_process.start()
+    run_aiogram()
     async def main():
         await dp.start_polling(bot)
     asyncio.run(main())
