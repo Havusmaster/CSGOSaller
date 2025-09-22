@@ -148,9 +148,16 @@ body { background: linear-gradient(135deg, #1a1a1a, #2a2a2a); min-height: 100vh;
 input, select, textarea { transition: border-color 0.3s ease; }
 input:focus, select:focus, textarea:focus { border-color: #f97316 !important; outline: none; }
 </style>
+<script>
+function toggleFloatField(selectId, floatId) {
+  const select = document.getElementById(selectId);
+  const floatField = document.getElementById(floatId);
+  floatField.style.display = select.value === 'weapon' ? 'block' : 'none';
+}
+</script>
 """
 
-# HTML Header
+# HTML Header для публичных страниц
 HEADER = TAILWIND + """
 <nav class="fixed top-0 left-0 right-0 bg-gray-900 shadow-lg z-50">
   <div class="container mx-auto px-4 py-3 flex justify-between items-center">
@@ -162,13 +169,21 @@ HEADER = TAILWIND + """
     </div>
   </div>
 </nav>
-<script>
-function toggleFloatField(selectId, floatId) {
-  const select = document.getElementById(selectId);
-  const floatField = document.getElementById(floatId);
-  floatField.style.display = select.value === 'weapon' ? 'block' : 'none';
-}
-</script>
+"""
+
+# HTML Header для админ-панели
+ADMIN_HEADER = TAILWIND + """
+<nav class="fixed top-0 left-0 right-0 bg-gray-900 shadow-lg z-50">
+  <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+    <span class="text-2xl font-bold text-orange-500">🔑 Админ-панель</span>
+    <div class="space-x-4">
+      <a href="/admin/products" class="text-gray-300 hover:text-orange-500 transition-colors">📦 Товары</a>
+      <a href="/admin/lots" class="text-gray-300 hover:text-orange-500 transition-colors">🏆 Лоты</a>
+      <a href="/admin/purchases" class="text-gray-300 hover:text-orange-500 transition-colors">🛒 Покупки</a>
+      <a href="/" class="text-gray-300 hover:text-orange-500 transition-colors">🏠 Главная</a>
+    </div>
+  </div>
+</nav>
 """
 
 # =====================
@@ -211,14 +226,17 @@ dp.include_router(router)
 # =====================
 # Уведомления админам
 # =====================
-def notify_admins_purchase(product, price, buyer):
-    text = f"\n🛒 Новая заявка на покупку!\n📦 Товар: {product}\n💰 Цена: {price}\n👤 Покупатель: {buyer}"
+def notify_admins_purchase(product, price, buyer, description, quantity, float_value, trade_ban, item_type):
+    float_text = f"Float: {float_value:.4f}" if float_value is not None and item_type == 'weapon' else "Float: N/A"
+    ban_text = "Trade Ban: Да" if trade_ban else "Trade Ban: Нет"
+    type_text = "Тип: Оружие" if item_type == 'weapon' else "Тип: Агент"
+    text = f"\n🛒 Новая заявка на покупку!\n📦 Товар: {product}\n📜 Описание: {description}\n💰 Цена: {price}₽\n📦 Количество: {quantity}\n🔢 {float_text}\n🚫 {ban_text}\n🎮 {type_text}\n👤 Покупатель: {buyer}"
     for admin_id in ADMIN_IDS:
         try:
             asyncio.run_coroutine_threadsafe(bot.send_message(admin_id, text), asyncio.new_event_loop())
         except Exception as e:
             logging.error(f"Ошибка отправки админу: {e}")
-    logging.info(f"Покупка: {product}, {price}, {buyer}")
+    logging.info(f"Покупка: {product}, {price}, {buyer}, {description}, {quantity}, {float_text}, {ban_text}, {type_text}")
 
 def notify_admins_auction(lot, price, winner):
     text = f"\n🏆 Аукцион завершён!\n📦 Лот: {lot}\n💰 Цена: {price}\n👤 Победитель: {winner}"
@@ -243,7 +261,7 @@ def login():
     logging.info(f"Login route: user_id={user_id}")
     if user_id in ADMIN_IDS:
         logging.info("User is admin, redirecting to /admin")
-        return redirect(url_for('admin'))
+        return redirect(url_for('admin_products'))
     logging.info("User not admin, redirecting to /")
     return redirect(url_for('index'))
 
@@ -270,7 +288,7 @@ def index():
       </div>
     """
     if user_id in ADMIN_IDS:
-        html += '<a href="/admin" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn">🔑 Админ-панель</a>'
+        html += '<a href="/admin/products" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn">🔑 Админ-панель</a>'
     html += """
       <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
         <a href="/shop" class="text-gray-300 hover:text-orange-500">🛒 Магазин</a>
@@ -378,7 +396,7 @@ def buy():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     pid = int(request.form['product_id'])
-    c.execute('SELECT name, price, quantity FROM products WHERE id=? AND sold=0', (pid,))
+    c.execute('SELECT name, price, quantity, description, float_value, trade_ban, type FROM products WHERE id=? AND sold=0', (pid,))
     prod = c.fetchone()
     if not prod or prod[2] < 1:
         conn.close()
@@ -390,8 +408,8 @@ def buy():
               (pid, prod[0], prod[1], str(user_id), int(time.time())))
     conn.commit()
     conn.close()
-    notify_admins_purchase(prod[0], prod[1], user_id)
-    logging.info(f"Покупка: {prod[0]}, {prod[1]}, {user_id}")
+    notify_admins_purchase(prod[0], prod[1], user_id, prod[3], prod[2], prod[4], prod[5], prod[6])
+    logging.info(f"Покупка: {prod[0]}, {prod[1]}, {user_id}, {prod[3]}, {prod[2]}, Float: {prod[4]}, Trade Ban: {prod[5]}, Type: {prod[6]}")
     return HEADER + '<div class="container mx-auto pt-20 pb-10 px-4"><div class="bg-green-600 text-white p-4 rounded-lg">✅ Заявка на покупку отправлена администратору!</div><a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
 
 @app.route('/bid', methods=['POST'])
@@ -437,22 +455,18 @@ def bid_custom():
     logging.info(f"Ставка: Лот {lot_id}, {amount}, {user_id}")
     return redirect('/auction')
 
-@app.route('/admin')
-def admin():
+@app.route('/admin/products')
+def admin_products():
     if not is_admin():
         return redirect('/login')
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products')
     products = c.fetchall()
-    c.execute('SELECT id, name, description, current_price, end_time, step, active, image, float_value, trade_ban, type FROM lots')
-    lots = c.fetchall()
-    c.execute('SELECT id, product_id, name, price, buyer, time FROM purchases ORDER BY time DESC LIMIT 20')
-    purchases = c.fetchall()
     conn.close()
-    html = HEADER + """
+    html = ADMIN_HEADER + """
     <div class="container mx-auto pt-20 pb-10 px-4">
-      <h2 class="text-3xl font-bold text-gray-300 mb-6">📦 Управление товарами</h2>
+      <h2 class="text-3xl font-bold text-gray-300 mb-6">📦 Товары</h2>
       <div class="overflow-x-auto">
         <table class="w-full bg-gray-800 text-gray-300 rounded-lg">
           <thead><tr class="bg-gray-900"><th class="p-3">Фото</th><th class="p-3">Название</th><th class="p-3">Описание</th><th class="p-3">Цена</th><th class="p-3">Кол-во</th><th class="p-3">Float</th><th class="p-3">Trade Ban</th><th class="p-3">Тип</th><th class="p-3">Статус</th><th class="p-3">Действия</th></tr></thead>
@@ -526,7 +540,28 @@ def admin():
         </div>
       </form>
       <hr class="border-gray-700 my-6">
-      <h2 class="text-3xl font-bold text-blue-500 mb-6">🏆 Управление лотами</h2>
+      <a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад</a>
+      <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
+        <a href="/admin/products" class="text-gray-300 hover:text-orange-500">📦 Товары</a>
+        <a href="/admin/lots" class="text-gray-300 hover:text-orange-500">🏆 Лоты</a>
+        <a href="/admin/purchases" class="text-gray-300 hover:text-orange-500">🛒 Покупки</a>
+      </div>
+    </div>
+    """
+    return html
+
+@app.route('/admin/lots')
+def admin_lots():
+    if not is_admin():
+        return redirect('/login')
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('SELECT id, name, description, current_price, end_time, step, active, image, float_value, trade_ban, type FROM lots')
+    lots = c.fetchall()
+    conn.close()
+    html = ADMIN_HEADER + """
+    <div class="container mx-auto pt-20 pb-10 px-4">
+      <h2 class="text-3xl font-bold text-blue-500 mb-6">🏆 Лоты</h2>
       <div class="overflow-x-auto">
         <table class="w-full bg-gray-800 text-gray-300 rounded-lg">
           <thead><tr class="bg-gray-900"><th class="p-3">Фото</th><th class="p-3">Название</th><th class="p-3">Описание</th><th class="p-3">Ставка</th><th class="p-3">До конца</th><th class="p-3">Float</th><th class="p-3">Trade Ban</th><th class="p-3">Тип</th><th class="p-3">Статус</th><th class="p-3">Действия</th></tr></thead>
@@ -603,6 +638,27 @@ def admin():
         </div>
       </form>
       <hr class="border-gray-700 my-6">
+      <a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад</a>
+      <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
+        <a href="/admin/products" class="text-gray-300 hover:text-orange-500">📦 Товары</a>
+        <a href="/admin/lots" class="text-gray-300 hover:text-orange-500">🏆 Лоты</a>
+        <a href="/admin/purchases" class="text-gray-300 hover:text-orange-500">🛒 Покупки</a>
+      </div>
+    </div>
+    """
+    return html
+
+@app.route('/admin/purchases')
+def admin_purchases():
+    if not is_admin():
+        return redirect('/login')
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('SELECT id, product_id, name, price, buyer, time FROM purchases ORDER BY time DESC LIMIT 20')
+    purchases = c.fetchall()
+    conn.close()
+    html = ADMIN_HEADER + """
+    <div class="container mx-auto pt-20 pb-10 px-4">
       <h2 class="text-3xl font-bold text-yellow-500 mb-6">🛒 Последние покупки</h2>
       <div class="overflow-x-auto">
         <table class="w-full bg-gray-800 text-gray-300 rounded-lg">
@@ -619,9 +675,9 @@ def admin():
       <hr class="border-gray-700 my-6">
       <a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад</a>
       <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
-        <a href="/" class="text-gray-300 hover:text-orange-500">🏠 Главная</a>
-        <a href="/shop" class="text-gray-300 hover:text-orange-500">🛒 Магазин</a>
-        <a href="/auction" class="text-gray-300 hover:text-orange-500">🏆 Аукцион</a>
+        <a href="/admin/products" class="text-gray-300 hover:text-orange-500">📦 Товары</a>
+        <a href="/admin/lots" class="text-gray-300 hover:text-orange-500">🏆 Лоты</a>
+        <a href="/admin/purchases" class="text-gray-300 hover:text-orange-500">🛒 Покупки</a>
       </div>
     </div>
     """
@@ -649,7 +705,7 @@ def add_product():
     conn.commit()
     conn.close()
     logging.info(f"Добавлен товар: {name}, {price}, {qty}, Type: {item_type}, Float: {float_value}, Trade Ban: {trade_ban}, Image: {image_name}")
-    return redirect('/admin')
+    return redirect('/admin/products')
 
 @app.route('/add_lot', methods=['POST'])
 def add_lot():
@@ -675,7 +731,7 @@ def add_lot():
     conn.commit()
     conn.close()
     logging.info(f"Создан лот: {name}, {start_price}, {step}, {minutes} мин, Type: {item_type}, Float: {float_value}, Trade Ban: {trade_ban}, Image: {image_name}")
-    return redirect('/admin')
+    return redirect('/admin/lots')
 
 @app.route('/mark_sold', methods=['POST'])
 def mark_sold():
@@ -686,7 +742,7 @@ def mark_sold():
     c.execute('UPDATE products SET sold=1 WHERE id=?', (pid,))
     conn.commit()
     conn.close()
-    return redirect('/admin')
+    return redirect('/admin/products')
 
 @app.route('/mark_unsold', methods=['POST'])
 def mark_unsold():
@@ -697,7 +753,7 @@ def mark_unsold():
     c.execute('UPDATE products SET sold=0 WHERE id=?', (pid,))
     conn.commit()
     conn.close()
-    return redirect('/admin')
+    return redirect('/admin/products')
 
 @app.route('/delete_product', methods=['POST'])
 def delete_product():
@@ -708,7 +764,7 @@ def delete_product():
     c.execute('DELETE FROM products WHERE id=?', (pid,))
     conn.commit()
     conn.close()
-    return redirect('/admin')
+    return redirect('/admin/products')
 
 @app.route('/stop_lot', methods=['POST'])
 def stop_lot():
@@ -719,7 +775,7 @@ def stop_lot():
     c.execute('UPDATE lots SET active=0 WHERE id=?', (lot_id,))
     conn.commit()
     conn.close()
-    return redirect('/admin')
+    return redirect('/admin/lots')
 
 @app.route('/delete_lot', methods=['POST'])
 def delete_lot():
@@ -730,7 +786,7 @@ def delete_lot():
     c.execute('DELETE FROM lots WHERE id=?', (lot_id,))
     conn.commit()
     conn.close()
-    return redirect('/admin')
+    return redirect('/admin/lots')
 
 @app.errorhandler(Exception)
 def handle_error(e):
