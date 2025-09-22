@@ -92,7 +92,7 @@ def init_db():
         image TEXT,
         float_value REAL,
         trade_ban INTEGER DEFAULT 0,
-        type TEXT NOT NULL
+        type TEXT NOT NULL DEFAULT 'weapon'
     )""")
     try:
         c.execute("ALTER TABLE lots ADD COLUMN float_value REAL")
@@ -103,7 +103,7 @@ def init_db():
     except sqlite3.OperationalError:
         pass
     try:
-        c.execute("ALTER TABLE lots ADD COLUMN type TEXT NOT NOT NULL DEFAULT 'weapon'")
+        c.execute("ALTER TABLE lots ADD COLUMN type TEXT NOT NULL DEFAULT 'weapon'")
     except sqlite3.OperationalError:
         pass
     c.execute("""
