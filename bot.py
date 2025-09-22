@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 """
 README
@@ -64,7 +63,8 @@ def init_db():
         sold INTEGER DEFAULT 0,
         image TEXT,
         float_value REAL,
-        trade_ban INTEGER DEFAULT 0
+        trade_ban INTEGER DEFAULT 0,
+        type TEXT NOT NULL
     )""")
     try:
         c.execute("ALTER TABLE products ADD COLUMN float_value REAL")
@@ -72,6 +72,10 @@ def init_db():
         pass
     try:
         c.execute("ALTER TABLE products ADD COLUMN trade_ban INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        c.execute("ALTER TABLE products ADD COLUMN type TEXT NOT NULL DEFAULT 'weapon'")
     except sqlite3.OperationalError:
         pass
     c.execute("""
@@ -87,7 +91,8 @@ def init_db():
         active INTEGER DEFAULT 1,
         image TEXT,
         float_value REAL,
-        trade_ban INTEGER DEFAULT 0
+        trade_ban INTEGER DEFAULT 0,
+        type TEXT NOT NULL
     )""")
     try:
         c.execute("ALTER TABLE lots ADD COLUMN float_value REAL")
@@ -95,6 +100,10 @@ def init_db():
         pass
     try:
         c.execute("ALTER TABLE lots ADD COLUMN trade_ban INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        c.execute("ALTER TABLE lots ADD COLUMN type TEXT NOT NULL DEFAULT 'weapon'")
     except sqlite3.OperationalError:
         pass
     c.execute("""
@@ -127,71 +136,39 @@ app.config['UPLOAD_FOLDER'] = 'static/images/'
 app.config['DEBUG'] = True
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Bootstrap шаблон
-BOOTSTRAP = """
-<link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css' rel='stylesheet'>
-<script src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js'></script>
+# Tailwind CSS
+TAILWIND = """
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body { background: linear-gradient(135deg, #1a1a1a, #2a2a2a); min-height: 100vh; }
+.card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+.card:hover { transform: scale(1.03); box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+.btn { transition: all 0.2s ease; }
+.btn:hover { transform: scale(1.05); }
+input, select, textarea { transition: border-color 0.3s ease; }
+input:focus, select:focus, textarea:focus { border-color: #f97316 !important; outline: none; }
+</style>
 """
 
 # HTML Header
-HEADER = BOOTSTRAP + """
-<nav class='navbar navbar-expand-lg navbar-dark bg-dark shadow-lg mb-4'>
-  <div class='container-fluid'>
-    <span class='navbar-brand mb-0 h1 display-6'>🛒 <b>CSGO2 Магазин & Аукцион</b></span>
+HEADER = TAILWIND + """
+<nav class="fixed top-0 left-0 right-0 bg-gray-900 shadow-lg z-50">
+  <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+    <span class="text-2xl font-bold text-orange-500">🛒 CSGO2 Магазин & Аукцион</span>
+    <div class="space-x-4">
+      <a href="/" class="text-gray-300 hover:text-orange-500 transition-colors">🏠 Главная</a>
+      <a href="/shop" class="text-gray-300 hover:text-orange-500 transition-colors">🛒 Магазин</a>
+      <a href="/auction" class="text-gray-300 hover:text-orange-500 transition-colors">🏆 Аукцион</a>
+    </div>
   </div>
 </nav>
-<style>
-body { background: #111 !important; color: #eee !important; min-height:100vh; }
-.card { background: #181818 !important; box-shadow: 0 4px 24px rgba(0,0,0,0.25); border-radius: 1rem; border: none; }
-.btn { font-size: 1.1em; font-weight: 500; border-radius: 0.7em; padding: 10px; touch-action: manipulation; }
-.card-title { font-size: 1.3em; font-weight: bold; color: #fff; }
-hr { border-top: 2px solid #222; }
-.table { background: #181818 !important; color: #eee !important; }
-.table th, .table td { vertical-align: middle; border-color: #222 !important; font-size: 0.9em; padding: 8px; }
-.table-striped > tbody > tr:nth-of-type(odd) { background-color: #222 !important; }
-input, select, textarea { background: #222 !important; color: #eee !important; border: 1px solid #333 !important; font-size: 1em; padding: 10px; }
-.form-control:focus { background: #222 !important; color: #fff !important; border-color: #444 !important; box-shadow: none; }
-.form-check-input:checked { background-color: #0d6efd; border-color: #0d6efd; }
-.navbar, .navbar-brand { background: #111 !important; }
-.badge { border-radius: 0.5em; font-size: 0.9em; }
-@media (max-width: 768px) {
-  .container { padding-bottom: 80px !important; }
-  .navbar-brand { font-size: 1.1em !important; }
-  .card-title { font-size: 1.1em !important; }
-  .btn { font-size: 0.9em !important; padding: 8px; }
-  .table th, .table td { font-size: 0.8em; padding: 6px; }
-  .form-control, select, textarea { font-size: 0.9em; padding: 8px; }
+<script>
+function toggleFloatField(selectId, floatId) {
+  const select = document.getElementById(selectId);
+  const floatField = document.getElementById(floatId);
+  floatField.style.display = select.value === 'weapon' ? 'block' : 'none';
 }
-.bottom-nav {
-  position: fixed;
-  left: 0; right: 0; bottom: 0;
-  background: #181818;
-  border-top: 2px solid #222;
-  z-index: 9999;
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  height: 60px;
-}
-.bottom-nav a {
-  flex: 1;
-  text-align: center;
-  color: #eee !important;
-  font-size: 1.1em;
-  padding: 10px 0;
-  text-decoration: none;
-  border: none;
-  background: none;
-}
-.bottom-nav a.active, .bottom-nav a:active {
-  color: #fff !important;
-  font-weight: bold;
-  background: #222;
-}
-@media (min-width: 769px) {
-  .bottom-nav { display: none; }
-}
-</style>
+</script>
 """
 
 # =====================
@@ -256,44 +233,48 @@ def notify_admins_auction(lot, price, winner):
 # Flask маршруты
 # =====================
 def is_admin():
-    return session.get('user_id') in ADMIN_IDS
+    user_id = session.get('user_id')
+    logging.info(f"Checking is_admin for user_id: {user_id}, ADMIN_IDS: {ADMIN_IDS}")
+    return user_id in ADMIN_IDS
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     user_id = session.get('user_id', None)
+    logging.info(f"Login route: user_id={user_id}")
     if user_id in ADMIN_IDS:
+        logging.info("User is admin, redirecting to /admin")
         return redirect(url_for('admin'))
+    logging.info("User not admin, redirecting to /")
     return redirect(url_for('index'))
 
 @app.route('/')
 def index():
     user_id = session.get('user_id', None)
+    logging.info(f"Index route: session user_id={user_id}, query user_id={request.args.get('user_id', None)}")
     if not user_id:
         user_id = request.args.get('user_id', None)
         if user_id:
             try:
                 user_id = int(user_id)
                 session['user_id'] = user_id
+                logging.info(f"Set session user_id: {user_id}")
             except:
                 user_id = None
+                logging.error("Failed to parse user_id from query")
     html = HEADER + """
-    <div class='container text-center'>
-      <h2 class='text-light mb-4'><span class='badge bg-dark fs-4'>Добро пожаловать!</span></h2>
-      <div class='row justify-content-center mb-5 g-3'>
-        <div class='col-12 col-md-6'>
-          <a href='/shop' class='btn btn-success btn-lg w-100 shadow-sm'>🛒 Магазин</a>
-        </div>
-        <div class='col-12 col-md-6'>
-          <a href='/auction' class='btn btn-primary btn-lg w-100 shadow-sm'>🏆 Аукцион</a>
-        </div>
+    <div class="container mx-auto pt-20 pb-10 px-4 text-center">
+      <h2 class="text-3xl font-bold text-orange-500 mb-6">Добро пожаловать!</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <a href="/shop" class="bg-green-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-green-700 btn">🛒 Магазин</a>
+        <a href="/auction" class="bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-700 btn">🏆 Аукцион</a>
       </div>
     """
-    if user_id in ADMIN_IDS and not request.args.get('tgWebApp', None):
-        html += "<a href='/admin' class='btn btn-dark w-100 fs-5 shadow-sm'>🔑 Админ-панель</a>"
+    if user_id in ADMIN_IDS:
+        html += '<a href="/admin" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn">🔑 Админ-панель</a>'
     html += """
-      <div class='bottom-nav'>
-        <a href='/shop'>🛒 Магазин</a>
-        <a href='/auction'>🏆 Аукцион</a>
+      <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
+        <a href="/shop" class="text-gray-300 hover:text-orange-500">🛒 Магазин</a>
+        <a href="/auction" class="text-gray-300 hover:text-orange-500">🏆 Аукцион</a>
       </div>
     </div>
     """
@@ -303,46 +284,39 @@ def index():
 def shop():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban FROM products WHERE sold=0 AND quantity>0')
+    c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products WHERE sold=0 AND quantity>0')
     products = c.fetchall()
     conn.close()
     html = HEADER + """
-    <div class='container'>
-      <h2 class='text-light mb-4'><span class='badge bg-success fs-4'>🛒 Магазин</span></h2>
-      <div class='row g-4'>
+    <div class="container mx-auto pt-20 pb-10 px-4">
+      <h2 class="text-3xl font-bold text-green-500 mb-6">🛒 Магазин</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
     """
     for p in products:
-        img_html = f"<img src='/static/images/{p[6]}' class='mb-2 w-100 rounded shadow-sm' style='max-height:180px;object-fit:cover;'>" if p[6] else ""
-        float_text = f"Float: {p[7]:.4f}" if p[7] is not None else "Float: N/A"
+        img_html = f'<img src="/static/images/{p[6]}" class="mb-4 w-full rounded-lg object-cover" style="max-height:180px;" alt="{p[1]}">' if p[6] else ""
+        float_text = f"Float: {p[7]:.4f}" if p[7] is not None and p[9] == 'weapon' else ""
         ban_text = "Trade Ban: Да" if p[8] else "Trade Ban: Нет"
+        type_text = "Тип: Оружие" if p[9] == 'weapon' else "Тип: Агент"
         html += f"""
-        <div class='col-12 col-sm-6 col-md-4'>
-          <div class='card border-success h-100'>
-            <div class='card-body'>
-              {img_html}
-              <h5 class='card-title text-success'>🏷 {p[1]}</h5>
-              <p class='card-text text-light'>📜 {p[2]}</p>
-              <p class='mb-2'><span class='badge bg-warning text-dark'>💰 {p[3]}₽</span> <span class='badge bg-info text-dark'>📦 Осталось: {p[4]}</span></p>
-              <p class='mb-2'><small class='text-muted'>{float_text} | {ban_text}</small></p>
-              <form method='post' action='/buy'>
-                <input type='hidden' name='product_id' value='{p[0]}'>
-                <button class='btn btn-success w-100 shadow-sm'>🛒 Купить</button>
-              </form>
-            </div>
-          </div>
+        <div class="bg-gray-800 rounded-lg p-4 card">
+          {img_html}
+          <h5 class="text-xl font-bold text-green-500">{p[1]}</h5>
+          <p class="text-gray-300">{p[2]}</p>
+          <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">💰 {p[3]}₽</span> <span class="bg-blue-500 text-white px-2 py-1 rounded">📦 Осталось: {p[4]}</span></p>
+          <p class="mt-2 text-sm text-gray-400">{float_text} {'' if not float_text else ' | '}{ban_text} | {type_text}</p>
+          <form method="post" action="/buy" class="mt-4">
+            <input type="hidden" name="product_id" value="{p[0]}">
+            <button class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn">🛒 Купить</button>
+          </form>
         </div>
         """
     html += """
       </div>
-      <hr>
-      <div class='row mt-4'>
-        <div class='col-12'>
-          <a href='/' class='btn btn-dark w-100 fs-5 shadow-sm'>⬅️ Назад</a>
-        </div>
-      </div>
-      <div class='bottom-nav'>
-        <a href='/'>🏠 Главная</a>
-        <a href='/auction'>🏆 Аукцион</a>
+      <hr class="border-gray-700 my-6">
+      <a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад</a>
+      <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
+        <a href="/" class="text-gray-300 hover:text-orange-500">🏠 Главная</a>
+        <a href="/auction" class="text-gray-300 hover:text-orange-500">🏆 Аукцион</a>
       </div>
     </div>
     """
@@ -352,54 +326,47 @@ def shop():
 def auction():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute('SELECT id, name, description, current_price, end_time, step, active, image, float_value, trade_ban FROM lots WHERE active=1')
+    c.execute('SELECT id, name, description, current_price, end_time, step, active, image, float_value, trade_ban, type FROM lots WHERE active=1')
     lots = c.fetchall()
     conn.close()
     html = HEADER + """
-    <div class='container'>
-      <h2 class='text-light mb-4'><span class='badge bg-primary fs-4'>🏆 Аукцион</span></h2>
-      <div class='row g-4'>
+    <div class="container mx-auto pt-20 pb-10 px-4">
+      <h2 class="text-3xl font-bold text-blue-500 mb-6">🏆 Аукцион</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
     """
     for l in lots:
         time_left = max(0, l[4] - int(time.time()))
-        img_html = f"<img src='/static/images/{l[7]}' class='mb-2 w-100 rounded shadow-sm' style='max-height:180px;object-fit:cover;'>" if l[7] else ""
-        float_text = f"Float: {l[8]:.4f}" if l[8] is not None else "Float: N/A"
+        img_html = f'<img src="/static/images/{l[7]}" class="mb-4 w-full rounded-lg object-cover" style="max-height:180px;" alt="{l[1]}">' if l[7] else ""
+        float_text = f"Float: {l[8]:.4f}" if l[8] is not None and l[10] == 'weapon' else ""
         ban_text = "Trade Ban: Да" if l[9] else "Trade Ban: Нет"
+        type_text = "Тип: Оружие" if l[10] == 'weapon' else "Тип: Агент"
         html += f"""
-        <div class='col-12 col-sm-6'>
-          <div class='card border-primary h-100'>
-            <div class='card-body'>
-              {img_html}
-              <h5 class='card-title text-primary'>🏆 {l[1]}</h5>
-              <p class='card-text text-light'>📜 {l[2]}</p>
-              <p class='mb-2'><span class='badge bg-warning text-dark'>💰 Текущая ставка: {l[3]}₽</span></p>
-              <p class='mb-2'><span class='badge bg-secondary'>⏳ До конца: {time_left//60} мин {time_left%60} сек</span></p>
-              <p class='mb-2'><small class='text-muted'>{float_text} | {ban_text}</small></p>
-              <form method='post' action='/bid'>
-                <input type='hidden' name='lot_id' value='{l[0]}'>
-                <input type='hidden' name='step' value='{l[5]}'>
-                <button class='btn btn-warning w-100 shadow-sm'>🔼 Ставка +{l[5]}₽</button>
-              </form>
-              <form method='post' action='/bid_custom' class='mt-2'>
-                <input type='hidden' name='lot_id' value='{l[0]}'>
-                <input type='number' name='amount' class='form-control mb-2' placeholder='Ввести сумму' min='{l[3]+l[5]}' required>
-                <button class='btn btn-info w-100 shadow-sm'>💸 Ввести сумму</button>
-              </form>
-            </div>
-          </div>
+        <div class="bg-gray-800 rounded-lg p-4 card">
+          {img_html}
+          <h5 class="text-xl font-bold text-blue-500">{l[1]}</h5>
+          <p class="text-gray-300">{l[2]}</p>
+          <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">💰 Текущая ставка: {l[3]}₽</span></p>
+          <p class="mt-2"><span class="bg-gray-600 text-white px-2 py-1 rounded">⏳ До конца: {time_left//60} мин {time_left%60} сек</span></p>
+          <p class="mt-2 text-sm text-gray-400">{float_text} {'' if not float_text else ' | '}{ban_text} | {type_text}</p>
+          <form method="post" action="/bid" class="mt-4">
+            <input type="hidden" name="lot_id" value="{l[0]}">
+            <input type="hidden" name="step" value="{l[5]}">
+            <button class="bg-yellow-500 text-black w-full py-2 rounded-lg hover:bg-yellow-600 btn">🔼 Ставка +{l[5]}₽</button>
+          </form>
+          <form method="post" action="/bid_custom" class="mt-2">
+            <input type="hidden" name="lot_id" value="{l[0]}">
+            <input type="number" name="amount" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600 mb-2" placeholder="Ваша ставка (₽)" min="{l[3]+l[5]}" required>
+            <button class="bg-blue-600 text-white w-full py-2 rounded-lg hover:bg-blue-700 btn">💸 Ввести сумму</button>
+          </form>
         </div>
         """
     html += """
       </div>
-      <hr>
-      <div class='row mt-4'>
-        <div class='col-12'>
-          <a href='/' class='btn btn-dark w-100 fs-5 shadow-sm'>⬅️ Назад</a>
-        </div>
-      </div>
-      <div class='bottom-nav'>
-        <a href='/'>🏠 Главная</a>
-        <a href='/shop'>🛒 Магазин</a>
+      <hr class="border-gray-700 my-6">
+      <a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад</a>
+      <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
+        <a href="/" class="text-gray-300 hover:text-orange-500">🏠 Главная</a>
+        <a href="/shop" class="text-gray-300 hover:text-orange-500">🛒 Магазин</a>
       </div>
     </div>
     """
@@ -415,7 +382,7 @@ def buy():
     prod = c.fetchone()
     if not prod or prod[2] < 1:
         conn.close()
-        return HEADER + "<div class='container'><div class='alert alert-danger'>Товар недоступен.</div><a href='/shop' class='btn btn-primary mt-2'>Назад</a></div>"
+        return HEADER + '<div class="container mx-auto pt-20 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Товар недоступен.</div><a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
     c.execute('UPDATE products SET quantity=quantity-1 WHERE id=?', (pid,))
     if prod[2] == 1:
         c.execute('UPDATE products SET sold=1 WHERE id=?', (pid,))
@@ -425,7 +392,7 @@ def buy():
     conn.close()
     notify_admins_purchase(prod[0], prod[1], user_id)
     logging.info(f"Покупка: {prod[0]}, {prod[1]}, {user_id}")
-    return HEADER + "<div class='container'><div class='alert alert-success'>✅ Заявка на покупку отправлена администратору!</div><a href='/' class='btn btn-primary mt-2'>Назад</a></div>"
+    return HEADER + '<div class="container mx-auto pt-20 pb-10 px-4"><div class="bg-green-600 text-white p-4 rounded-lg">✅ Заявка на покупку отправлена администратору!</div><a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
 
 @app.route('/bid', methods=['POST'])
 def bid():
@@ -440,7 +407,7 @@ def bid():
     lot = c.fetchone()
     if not lot:
         conn.close()
-        return HEADER + "<div class='container'><div class='alert alert-danger'>Лот недоступен.</div></div>"
+        return HEADER + '<div class="container mx-auto pt-20 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Лот недоступен.</div></div>'
     new_price = lot[0] + step
     c.execute('UPDATE lots SET current_price=? WHERE id=?', (new_price, lot_id))
     c.execute('INSERT INTO bids (lot_id, user_id, amount, time) VALUES (?, ?, ?, ?)', (lot_id, user_id, new_price, int(time.time())))
@@ -462,7 +429,7 @@ def bid_custom():
     lot = c.fetchone()
     if not lot or amount < lot[0] + lot[2]:
         conn.close()
-        return HEADER + "<div class='container'><div class='alert alert-danger'>Сумма слишком мала.</div></div>"
+        return HEADER + '<div class="container mx-auto pt-20 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Сумма слишком мала.</div></div>'
     c.execute('UPDATE lots SET current_price=? WHERE id=?', (amount, lot_id))
     c.execute('INSERT INTO bids (lot_id, user_id, amount, time) VALUES (?, ?, ?, ?)', (lot_id, user_id, amount, int(time.time())))
     conn.commit()
@@ -476,41 +443,43 @@ def admin():
         return redirect('/login')
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban FROM products')
+    c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products')
     products = c.fetchall()
-    c.execute('SELECT id, name, description, current_price, end_time, step, active, image, float_value, trade_ban FROM lots')
+    c.execute('SELECT id, name, description, current_price, end_time, step, active, image, float_value, trade_ban, type FROM lots')
     lots = c.fetchall()
     c.execute('SELECT id, product_id, name, price, buyer, time FROM purchases ORDER BY time DESC LIMIT 20')
     purchases = c.fetchall()
     conn.close()
     html = HEADER + """
-    <div class='container'>
-      <h2 class='text-light mb-4'><span class='badge bg-dark fs-4'>📦 Управление товарами</span></h2>
-      <div class='table-responsive'>
-        <table class='table table-dark table-striped table-bordered rounded shadow-sm'>
-          <thead><tr><th>Фото</th><th>Название</th><th>Описание</th><th>Цена</th><th>Кол-во</th><th>Float</th><th>Trade Ban</th><th>Статус</th><th>Действия</th></tr></thead>
+    <div class="container mx-auto pt-20 pb-10 px-4">
+      <h2 class="text-3xl font-bold text-gray-300 mb-6">📦 Управление товарами</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full bg-gray-800 text-gray-300 rounded-lg">
+          <thead><tr class="bg-gray-900"><th class="p-3">Фото</th><th class="p-3">Название</th><th class="p-3">Описание</th><th class="p-3">Цена</th><th class="p-3">Кол-во</th><th class="p-3">Float</th><th class="p-3">Trade Ban</th><th class="p-3">Тип</th><th class="p-3">Статус</th><th class="p-3">Действия</th></tr></thead>
           <tbody>
     """
     for p in products:
         status = '✅ Продан' if p[5] else '🟢 В продаже'
-        float_text = f"{p[7]:.4f}" if p[7] is not None else "N/A"
+        float_text = f"{p[7]:.4f}" if p[7] is not None and p[9] == 'weapon' else "N/A"
         ban_text = 'Да' if p[8] else 'Нет'
-        img_html = f"<img src='/static/images/{p[6]}' style='max-width:60px;max-height:60px;border-radius:8px;'>" if p[6] else ""
+        type_text = 'Оружие' if p[9] == 'weapon' else 'Агент'
+        img_html = f'<img src="/static/images/{p[6]}" class="w-16 h-16 rounded-lg object-cover" alt="{p[1]}">' if p[6] else ""
         html += f"""
-        <tr>
-          <td>{img_html}</td>
-          <td>{p[1]}</td>
-          <td>{p[2]}</td>
-          <td>{p[3]}</td>
-          <td>{p[4]}</td>
-          <td>{float_text}</td>
-          <td>{ban_text}</td>
-          <td>{status}</td>
-          <td>
-            <div class='d-flex flex-column gap-1'>
-              {"" if p[5] else f"<form method='post' action='/mark_sold' style='display:inline;'><input type='hidden' name='product_id' value='{p[0]}'><button class='btn btn-success btn-sm mb-1'>✅ Продан</button></form>"}
-              {"" if not p[5] else f"<form method='post' action='/mark_unsold' style='display:inline;'><input type='hidden' name='product_id' value='{p[0]}'><button class='btn btn-warning btn-sm mb-1'>❌ Не продан</button></form>"}
-              <form method='post' action='/delete_product' style='display:inline;'><input type='hidden' name='product_id' value='{p[0]}'><button class='btn btn-danger btn-sm'>🗑️ Удалить</button></form>
+        <tr class="border-b border-gray-700">
+          <td class="p-3">{img_html}</td>
+          <td class="p-3">{p[1]}</td>
+          <td class="p-3">{p[2]}</td>
+          <td class="p-3">{p[3]}₽</td>
+          <td class="p-3">{p[4]}</td>
+          <td class="p-3">{float_text}</td>
+          <td class="p-3">{ban_text}</td>
+          <td class="p-3">{type_text}</td>
+          <td class="p-3">{status}</td>
+          <td class="p-3">
+            <div class="flex flex-col gap-2">
+              {'' if p[5] else f'<form method="post" action="/mark_sold"><input type="hidden" name="product_id" value="{p[0]}"><button class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 btn text-sm">✅ Продан</button></form>'}
+              {'' if not p[5] else f'<form method="post" action="/mark_unsold"><input type="hidden" name="product_id" value="{p[0]}"><button class="bg-yellow-500 text-black px-3 py-1 rounded hover:bg-yellow-600 btn text-sm">❌ Не продан</button></form>'}
+              <form method="post" action="/delete_product"><input type="hidden" name="product_id" value="{p[0]}"><button class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 btn text-sm">🗑️ Удалить</button></form>
             </div>
           </td>
         </tr>
@@ -519,66 +488,72 @@ def admin():
           </tbody>
         </table>
       </div>
-      <hr>
-      <h2 class='text-light mb-4'><span class='badge bg-success fs-4'>➕ Добавить товар</span></h2>
-      <form method='post' action='/add_product' class='mb-4' enctype='multipart/form-data'>
-        <div class='row g-2'>
-          <div class='col-12 col-md-6'>
-            <input name='name' class='form-control mb-2' placeholder='Название' required>
-          </div>
-          <div class='col-12 col-md-6'>
-            <textarea name='description' class='form-control mb-2' placeholder='Описание' rows='3' required></textarea>
-          </div>
-          <div class='col-12 col-md-6'>
-            <input name='price' type='number' class='form-control mb-2' placeholder='Цена' required>
-          </div>
-          <div class='col-12 col-md-6'>
-            <input name='quantity' type='number' class='form-control mb-2' placeholder='Количество' required>
-          </div>
-          <div class='col-12 col-md-6'>
-            <input name='float_value' type='number' step='0.001' class='form-control mb-2' placeholder='Float (0.00-1.00, опционально)' min='0' max='1'>
-          </div>
-          <div class='col-12 col-md-6'>
-            <div class='form-check mb-2'>
-              <input type='checkbox' name='trade_ban' class='form-check-input' id='trade_ban_prod'>
-              <label class='form-check-label' for='trade_ban_prod'>Trade Ban</label>
-            </div>
-          </div>
-          <div class='col-12'>
-            <input name='image' type='file' accept='image/*' class='form-control mb-2'>
-          </div>
-          <div class='col-12'>
-            <button class='btn btn-primary w-100 shadow-sm'>➕ Добавить</button>
-          </div>
+      <hr class="border-gray-700 my-6">
+      <h2 class="text-3xl font-bold text-green-500 mb-6">➕ Добавить товар</h2>
+      <form method="post" action="/add_product" class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4" enctype="multipart/form-data">
+        <div>
+          <input name="name" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Название оружия или агента" required>
+        </div>
+        <div>
+          <textarea name="description" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Описание (например, скин, редкость)" rows="3" required></textarea>
+        </div>
+        <div>
+          <input name="price" type="number" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Цена в рублях" required>
+        </div>
+        <div>
+          <input name="quantity" type="number" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Количество" required>
+        </div>
+        <div>
+          <select name="type" id="product_type" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" onchange="toggleFloatField('product_type', 'product_float')" required>
+            <option value="weapon">Оружие</option>
+            <option value="agent">Агент</option>
+          </select>
+        </div>
+        <div id="product_float">
+          <input name="float_value" type="number" step="0.001" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Float (0.00-1.00, опционально)" min="0" max="1">
+        </div>
+        <div>
+          <label class="flex items-center gap-2">
+            <input type="checkbox" name="trade_ban" class="h-5 w-5 text-orange-500 bg-gray-700 border-gray-600 rounded">
+            <span class="text-gray-300">Trade Ban</span>
+          </label>
+        </div>
+        <div>
+          <input name="image" type="file" accept="image/*" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Изображение">
+        </div>
+        <div class="md:col-span-2">
+          <button class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn">➕ Добавить товар</button>
         </div>
       </form>
-      <hr>
-      <h2 class='text-light mb-4'><span class='badge bg-primary fs-4'>🏆 Управление лотами</span></h2>
-      <div class='table-responsive'>
-        <table class='table table-dark table-striped table-bordered rounded shadow-sm'>
-          <thead><tr><th>Фото</th><th>Название</th><th>Описание</th><th>Ставка</th><th>До конца</th><th>Float</th><th>Trade Ban</th><th>Статус</th><th>Действия</th></tr></thead>
+      <hr class="border-gray-700 my-6">
+      <h2 class="text-3xl font-bold text-blue-500 mb-6">🏆 Управление лотами</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full bg-gray-800 text-gray-300 rounded-lg">
+          <thead><tr class="bg-gray-900"><th class="p-3">Фото</th><th class="p-3">Название</th><th class="p-3">Описание</th><th class="p-3">Ставка</th><th class="p-3">До конца</th><th class="p-3">Float</th><th class="p-3">Trade Ban</th><th class="p-3">Тип</th><th class="p-3">Статус</th><th class="p-3">Действия</th></tr></thead>
           <tbody>
     """
     for l in lots:
         time_left = max(0, l[4] - int(time.time()))
         status = '🟢 Активен' if l[6] else '⛔ Остановлен'
-        float_text = f"{l[8]:.4f}" if l[8] is not None else "N/A"
+        float_text = f"{l[8]:.4f}" if l[8] is not None and l[10] == 'weapon' else "N/A"
         ban_text = 'Да' if l[9] else 'Нет'
-        img_html = f"<img src='/static/images/{l[7]}' style='max-width:60px;max-height:60px;border-radius:8px;'>" if l[7] else ""
+        type_text = 'Оружие' if l[10] == 'weapon' else 'Агент'
+        img_html = f'<img src="/static/images/{l[7]}" class="w-16 h-16 rounded-lg object-cover" alt="{l[1]}">' if l[7] else ""
         html += f"""
-        <tr>
-          <td>{img_html}</td>
-          <td>{l[1]}</td>
-          <td>{l[2]}</td>
-          <td>{l[3]}</td>
-          <td>{time_left//60} мин {time_left%60} сек</td>
-          <td>{float_text}</td>
-          <td>{ban_text}</td>
-          <td>{status}</td>
-          <td>
-            <div class='d-flex flex-column gap-1'>
-              {"" if not l[6] else f"<form method='post' action='/stop_lot' style='display:inline;'><input type='hidden' name='lot_id' value='{l[0]}'><button class='btn btn-danger btn-sm mb-1'>⛔ Остановить</button></form>"}
-              <form method='post' action='/delete_lot' style='display:inline;'><input type='hidden' name='lot_id' value='{l[0]}'><button class='btn btn-secondary btn-sm'>🗑️ Удалить</button></form>
+        <tr class="border-b border-gray-700">
+          <td class="p-3">{img_html}</td>
+          <td class="p-3">{l[1]}</td>
+          <td class="p-3">{l[2]}</td>
+          <td class="p-3">{l[3]}₽</td>
+          <td class="p-3">{time_left//60} мин {time_left%60} сек</td>
+          <td class="p-3">{float_text}</td>
+          <td class="p-3">{ban_text}</td>
+          <td class="p-3">{type_text}</td>
+          <td class="p-3">{status}</td>
+          <td class="p-3">
+            <div class="flex flex-col gap-2">
+              {'' if not l[6] else f'<form method="post" action="/stop_lot"><input type="hidden" name="lot_id" value="{l[0]}"><button class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 btn text-sm">⛔ Остановить</button></form>'}
+              <form method="post" action="/delete_lot"><input type="hidden" name="lot_id" value="{l[0]}"><button class="bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 btn text-sm">🗑️ Удалить</button></form>
             </div>
           </td>
         </tr>
@@ -587,62 +562,66 @@ def admin():
           </tbody>
         </table>
       </div>
-      <hr>
-      <h2 class='text-light mb-4'><span class='badge bg-primary fs-4'>➕ Добавить лот</span></h2>
-      <form method='post' action='/add_lot' class='mb-4' enctype='multipart/form-data'>
-        <div class='row g-2'>
-          <div class='col-12 col-md-6'>
-            <input name='name' class='form-control mb-2' placeholder='Название' required>
-          </div>
-          <div class='col-12 col-md-6'>
-            <textarea name='description' class='form-control mb-2' placeholder='Описание' rows='3' required></textarea>
-          </div>
-          <div class='col-12 col-md-6'>
-            <input name='start_price' type='number' class='form-control mb-2' placeholder='Стартовая цена' required>
-          </div>
-          <div class='col-12 col-md-6'>
-            <input name='step' type='number' class='form-control mb-2' placeholder='Шаг ставки' required>
-          </div>
-          <div class='col-12 col-md-6'>
-            <input name='minutes' type='number' class='form-control mb-2' placeholder='Время в минутах' required>
-          </div>
-          <div class='col-12 col-md-6'>
-            <input name='float_value' type='number' step='0.001' class='form-control mb-2' placeholder='Float (0.00-1.00, опционально)' min='0' max='1'>
-          </div>
-          <div class='col-12 col-md-6'>
-            <div class='form-check mb-2'>
-              <input type='checkbox' name='trade_ban' class='form-check-input' id='trade_ban_lot'>
-              <label class='form-check-label' for='trade_ban_lot'>Trade Ban</label>
-            </div>
-          </div>
-          <div class='col-12'>
-            <input name='image' type='file' accept='image/*' class='form-control mb-2'>
-          </div>
-          <div class='col-12'>
-            <button class='btn btn-primary w-100 shadow-sm'>➕ Добавить</button>
-          </div>
+      <hr class="border-gray-700 my-6">
+      <h2 class="text-3xl font-bold text-blue-500 mb-6">➕ Добавить лот</h2>
+      <form method="post" action="/add_lot" class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4" enctype="multipart/form-data">
+        <div>
+          <input name="name" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Название оружия или агента" required>
+        </div>
+        <div>
+          <textarea name="description" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Описание (например, скин, редкость)" rows="3" required></textarea>
+        </div>
+        <div>
+          <input name="start_price" type="number" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Стартовая цена (₽)" required>
+        </div>
+        <div>
+          <input name="step" type="number" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Шаг ставки (₽)" required>
+        </div>
+        <div>
+          <input name="minutes" type="number" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Время аукциона (минуты)" required>
+        </div>
+        <div>
+          <select name="type" id="lot_type" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" onchange="toggleFloatField('lot_type', 'lot_float')" required>
+            <option value="weapon">Оружие</option>
+            <option value="agent">Агент</option>
+          </select>
+        </div>
+        <div id="lot_float">
+          <input name="float_value" type="number" step="0.001" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Float (0.00-1.00, опционально)" min="0" max="1">
+        </div>
+        <div>
+          <label class="flex items-center gap-2">
+            <input type="checkbox" name="trade_ban" class="h-5 w-5 text-orange-500 bg-gray-700 border-gray-600 rounded">
+            <span class="text-gray-300">Trade Ban</span>
+          </label>
+        </div>
+        <div>
+          <input name="image" type="file" accept="image/*" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Изображение">
+        </div>
+        <div class="md:col-span-2">
+          <button class="bg-blue-600 text-white w-full py-2 rounded-lg hover:bg-blue-700 btn">➕ Добавить лот</button>
         </div>
       </form>
-      <hr>
-      <h2 class='text-light mb-4'><span class='badge bg-warning fs-4'>🛒 Последние покупки</span></h2>
-      <div class='table-responsive'>
-        <table class='table table-dark table-striped table-bordered rounded shadow-sm'>
-          <thead><tr><th>ID</th><th>Товар</th><th>Цена</th><th>Покупатель</th><th>Время</th></tr></thead>
+      <hr class="border-gray-700 my-6">
+      <h2 class="text-3xl font-bold text-yellow-500 mb-6">🛒 Последние покупки</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full bg-gray-800 text-gray-300 rounded-lg">
+          <thead><tr class="bg-gray-900"><th class="p-3">ID</th><th class="p-3">Товар</th><th class="p-3">Цена</th><th class="p-3">Покупатель</th><th class="p-3">Время</th></tr></thead>
           <tbody>
     """
     for pur in purchases:
         dt = time.strftime('%d.%m.%Y %H:%M', time.localtime(pur[5]))
-        html += f"<tr><td>{pur[0]}</td><td>{pur[2]}</td><td>{pur[3]}₽</td><td>{pur[4]}</td><td>{dt}</td></tr>"
+        html += f'<tr class="border-b border-gray-700"><td class="p-3">{pur[0]}</td><td class="p-3">{pur[2]}</td><td class="p-3">{pur[3]}₽</td><td class="p-3">{pur[4]}</td><td class="p-3">{dt}</td></tr>'
     html += """
           </tbody>
         </table>
       </div>
-      <hr>
-      <a href='/' class='btn btn-dark w-100 fs-5 shadow-sm'>⬅️ Назад</a>
-      <div class='bottom-nav'>
-        <a href='/'>🏠 Главная</a>
-        <a href='/shop'>🛒 Магазин</a>
-        <a href='/auction'>🏆 Аукцион</a>
+      <hr class="border-gray-700 my-6">
+      <a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад</a>
+      <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
+        <a href="/" class="text-gray-300 hover:text-orange-500">🏠 Главная</a>
+        <a href="/shop" class="text-gray-300 hover:text-orange-500">🛒 Магазин</a>
+        <a href="/auction" class="text-gray-300 hover:text-orange-500">🏆 Аукцион</a>
       </div>
     </div>
     """
@@ -655,7 +634,8 @@ def add_product():
     desc = request.form['description']
     price = int(request.form['price'])
     qty = int(request.form['quantity'])
-    float_value = float(request.form.get('float_value', None)) if request.form.get('float_value') else None
+    item_type = request.form['type']
+    float_value = float(request.form.get('float_value', None)) if request.form.get('float_value') and item_type == 'weapon' else None
     trade_ban = 1 if request.form.get('trade_ban') else 0
     image_file = request.files.get('image')
     image_name = None
@@ -664,11 +644,11 @@ def add_product():
         image_file.save(os.path.join(app.config['UPLOAD_FOLDER'], image_name))
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute('INSERT INTO products (name, description, price, quantity, image, float_value, trade_ban) VALUES (?, ?, ?, ?, ?, ?, ?)', 
-              (name, desc, price, qty, image_name, float_value, trade_ban))
+    c.execute('INSERT INTO products (name, description, price, quantity, image, float_value, trade_ban, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
+              (name, desc, price, qty, image_name, float_value, trade_ban, item_type))
     conn.commit()
     conn.close()
-    logging.info(f"Добавлен товар: {name}, {price}, {qty}, Float: {float_value}, Trade Ban: {trade_ban}, Image: {image_name}")
+    logging.info(f"Добавлен товар: {name}, {price}, {qty}, Type: {item_type}, Float: {float_value}, Trade Ban: {trade_ban}, Image: {image_name}")
     return redirect('/admin')
 
 @app.route('/add_lot', methods=['POST'])
@@ -679,7 +659,8 @@ def add_lot():
     start_price = int(request.form['start_price'])
     step = int(request.form['step'])
     minutes = int(request.form['minutes'])
-    float_value = float(request.form.get('float_value', None)) if request.form.get('float_value') else None
+    item_type = request.form['type']
+    float_value = float(request.form.get('float_value', None)) if request.form.get('float_value') and item_type == 'weapon' else None
     trade_ban = 1 if request.form.get('trade_ban') else 0
     image_file = request.files.get('image')
     image_name = None
@@ -689,11 +670,11 @@ def add_lot():
     end_time = int(time.time()) + minutes * 60
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute('INSERT INTO lots (name, description, start_price, step, end_time, current_price, image, float_value, trade_ban) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 
-              (name, desc, start_price, step, end_time, start_price, image_name, float_value, trade_ban))
+    c.execute('INSERT INTO lots (name, description, start_price, step, end_time, current_price, image, float_value, trade_ban, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+              (name, desc, start_price, step, end_time, start_price, image_name, float_value, trade_ban, item_type))
     conn.commit()
     conn.close()
-    logging.info(f"Создан лот: {name}, {start_price}, {step}, {minutes} мин, Float: {float_value}, Trade Ban: {trade_ban}, Image: {image_name}")
+    logging.info(f"Создан лот: {name}, {start_price}, {step}, {minutes} мин, Type: {item_type}, Float: {float_value}, Trade Ban: {trade_ban}, Image: {image_name}")
     return redirect('/admin')
 
 @app.route('/mark_sold', methods=['POST'])
@@ -754,9 +735,9 @@ def delete_lot():
 @app.errorhandler(Exception)
 def handle_error(e):
     import traceback
-    error_text = f"<h3 style='color:red'>Ошибка сервера:</h3><pre>{traceback.format_exc()}</pre>"
+    error_text = f'<h3 class="text-red-500">Ошибка сервера:</h3><pre class="text-gray-300">{traceback.format_exc()}</pre>'
     logging.error(traceback.format_exc())
-    return HEADER + f"<div class='container'>{error_text}</div>", 500
+    return HEADER + f'<div class="container mx-auto pt-20 pb-10 px-4">{error_text}</div>', 500
 
 # =====================
 # Фоновая задача: завершение аукционов
