@@ -128,10 +128,6 @@ def main_kb(user_id=None):
                 types.KeyboardButton(
                     text="🛒 Магазин",
                     web_app=types.WebAppInfo(url=f"https://csgosaller-1.onrender.com/?user_id={user_id}")
-                ),
-                types.KeyboardButton(
-                    text="🔑 Админ-панель",
-                    web_app=types.WebAppInfo(url=f"https://csgosaller-1.onrender.com/admin?user_id={user_id}")
                 )
             ]
         ])
