@@ -362,8 +362,15 @@ def auction():
     return html
 
 @app.route('/buy', methods=['POST'])
-def buy():
-    user_id = session.get('user_id', 'Гость')
+async def buy():
+    user_id = session.get('user_id', None)
+    username = "Гость"
+    if user_id:
+        try:
+            chat = await bot.get_chat(user_id)
+            username = chat.username or f"ID{user_id}"
+        except Exception as e:
+            logging.error(f"Ошибка получения username: {e}")
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     pid = int(request.form['product_id'])
@@ -376,11 +383,11 @@ def buy():
     if prod[2] == 1:
         c.execute('UPDATE products SET sold=1 WHERE id=?', (pid,))
     c.execute('INSERT INTO purchases (product_id, name, price, buyer, time) VALUES (?, ?, ?, ?, ?)',
-              (pid, prod[0], prod[1], str(user_id), int(time.time())))
+              (pid, prod[0], prod[1], username, int(time.time())))
     conn.commit()
     conn.close()
-    notify_admins_purchase(prod[0], prod[1], user_id, prod[3], prod[2], prod[4], prod[5], prod[6])
-    logging.info(f"Покупка: {prod[0]}, {prod[1]}, {user_id}, {prod[3]}, {prod[2]}, Float: {prod[4]}, Trade Ban: {prod[5]}, Type: {prod[6]}")
+    notify_admins_purchase(prod[0], prod[1], username, prod[3], prod[2], prod[4], prod[5], prod[6])
+    logging.info(f"Покупка: {prod[0]}, {prod[1]}, {username}, {prod[3]}, {prod[2]}, Float: {prod[4]}, Trade Ban: {prod[5]}, Type: {prod[6]}")
     return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-green-600 text-white p-4 rounded-lg">✅ Заявка на покупку отправлена администратору!</div><a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
 
 @app.route('/bid', methods=['POST'])
@@ -538,7 +545,7 @@ def admin_lots():
           <thead><tr class="bg-gray-900"><th class="p-3">Фото</th><th class="p-3">Название</th><th class="p-3">Описание</th><th class="p-3">Ставка</th><th class="p-3">До конца</th><th class="p-3">Float</th><th class="p-3">Trade Ban</th><th class="p-3">Тип</th><th class="p-3">Статус</th><th class="p-3">Действия</th></tr></thead>
           <tbody>
     """
-    for l in lots:
+    for l in products:
         time_left = max(0, l[4] - int(time.time()))
         status = '🟢 Активен' if l[6] else '⛔ Остановлен'
         float_text = f"{l[8]:.4f}" if l[8] is not None and l[10] == 'weapon' else "N/A"
