@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 """
 README
@@ -32,7 +33,7 @@ import os
 import sqlite3
 import logging
 import time
-from flask import Flask, render_template_string, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template_string, request, redirect, url_for, session
 from aiogram import Bot, Dispatcher, types
 from aiogram import Router
 from aiogram.filters import Command
@@ -40,7 +41,6 @@ import asyncio
 import multiprocessing
 import werkzeug
 from threading import Thread
-import threading
 
 # =====================
 # Логирование
@@ -48,7 +48,7 @@ import threading
 logging.basicConfig(filename="bot.log", level=logging.INFO, format="%(asctime)s %(message)s")
 
 # =====================
-# Инициализация базы данных (добавлены поля float_value и trade_ban)
+# Инициализация базы данных
 # =====================
 DB_PATH = "auction_shop.db"
 def init_db():
@@ -57,16 +57,15 @@ def init_db():
     c.execute("""
     CREATE TABLE IF NOT EXISTS products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        description TEXT,
-        price INTEGER,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        price INTEGER NOT NULL,
         quantity INTEGER,
         sold INTEGER DEFAULT 0,
         image TEXT,
         float_value REAL,
         trade_ban INTEGER DEFAULT 0
     )""")
-    # Добавляем колонки, если их нет (для существующих БД)
     try:
         c.execute("ALTER TABLE products ADD COLUMN float_value REAL")
     except sqlite3.OperationalError:
@@ -75,13 +74,12 @@ def init_db():
         c.execute("ALTER TABLE products ADD COLUMN trade_ban INTEGER DEFAULT 0")
     except sqlite3.OperationalError:
         pass
-
     c.execute("""
     CREATE TABLE IF NOT EXISTS lots (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        description TEXT,
-        start_price INTEGER,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        start_price INTEGER NOT NULL,
         step INTEGER,
         end_time INTEGER,
         current_price INTEGER,
@@ -91,7 +89,6 @@ def init_db():
         float_value REAL,
         trade_ban INTEGER DEFAULT 0
     )""")
-    # Добавляем колонки для lots
     try:
         c.execute("ALTER TABLE lots ADD COLUMN float_value REAL")
     except sqlite3.OperationalError:
@@ -100,8 +97,6 @@ def init_db():
         c.execute("ALTER TABLE lots ADD COLUMN trade_ban INTEGER DEFAULT 0")
     except sqlite3.OperationalError:
         pass
-
-    # Таблица ставок
     c.execute("""
     CREATE TABLE IF NOT EXISTS bids (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -110,7 +105,6 @@ def init_db():
         amount INTEGER,
         time INTEGER
     )""")
-    # Таблица покупок
     c.execute("""
     CREATE TABLE IF NOT EXISTS purchases (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -136,7 +130,68 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 # Bootstrap шаблон
 BOOTSTRAP = """
 <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css' rel='stylesheet'>
-<script src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js'></script>
+"""
+
+# HTML Header
+HEADER = BOOTSTRAP + """
+<nav class='navbar navbar-expand-lg navbar-dark bg-dark shadow-lg mb-4'>
+  <div class='container-fluid'>
+    <span class='navbar-brand mb-0 h1 display-6'>🛒 <b>CSGO2 Магазин & Аукцион</b></span>
+  </div>
+</nav>
+<style>
+body { background: #111 !important; color: #eee !important; min-height:100vh; }
+.card { background: #181818 !important; box-shadow: 0 4px 24px rgba(0,0,0,0.25); border-radius: 1rem; border: none; }
+.btn { font-size: 1.1em; font-weight: 500; border-radius: 0.7em; padding: 10px; touch-action: manipulation; }
+.card-title { font-size: 1.3em; font-weight: bold; color: #fff; }
+hr { border-top: 2px solid #222; }
+.table { background: #181818 !important; color: #eee !important; }
+.table th, .table td { vertical-align: middle; border-color: #222 !important; font-size: 0.9em; padding: 8px; }
+.table-striped > tbody > tr:nth-of-type(odd) { background-color: #222 !important; }
+input, select, textarea { background: #222 !important; color: #eee !important; border: 1px solid #333 !important; font-size: 1em; padding: 10px; }
+.form-control:focus { background: #222 !important; color: #fff !important; border-color: #444 !important; box-shadow: none; }
+.form-check-input:checked { background-color: #0d6efd; border-color: #0d6efd; }
+.navbar, .navbar-brand { background: #111 !important; }
+.badge { border-radius: 0.5em; font-size: 0.9em; }
+@media (max-width: 768px) {
+  .container { padding-bottom: 80px !important; }
+  .navbar-brand { font-size: 1.1em !important; }
+  .card-title { font-size: 1.1em !important; }
+  .btn { font-size: 0.9em !important; padding: 8px; }
+  .table th, .table td { font-size: 0.8em; padding: 6px; }
+  .form-control, select, textarea { font-size: 0.9em; padding: 8px; }
+}
+.bottom-nav {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  background: #181818;
+  border-top: 2px solid #222;
+  z-index: 9999;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  height: 60px;
+}
+.bottom-nav a {
+  flex: 1;
+  text-align: center;
+  color: #eee !important;
+  font-size: 1.1em;
+  padding: 10px 0;
+  text-decoration: none;
+  border: none;
+  background: none;
+}
+.bottom-nav a.active, .bottom-nav a:active {
+  color: #fff !important;
+  font-weight: bold;
+  background: #222;
+}
+@media (min-width: 769px) {
+  .bottom-nav { display: none; }
+}
+</style>
 """
 
 # =====================
@@ -198,44 +253,7 @@ def notify_admins_auction(lot, price, winner):
     logging.info(f"Аукцион: {lot}, {price}, {winner}")
 
 # =====================
-# HTML Header с улучшенным responsive
-# =====================
-HEADER = BOOTSTRAP + """
-<nav class='navbar navbar-expand-lg navbar-dark bg-dark shadow-lg mb-4'>
-  <div class='container-fluid'>
-    <span class='navbar-brand mb-0 h1 display-6'>🛒 <b>CSGO2 Магазин & Аукцион</b></span>
-  </div>
-</nav>
-<style>
-body { background: #111 !important; color: #eee !important; min-height:100vh; }
-.card { background: #181818 !important; box-shadow: 0 4px 24px rgba(0,0,0,0.25); border-radius: 1rem; border: none; }
-.btn { font-size: 1.1em; font-weight: 500; border-radius: 0.7em; }
-.card-title { font-size: 1.3em; font-weight: bold; color: #fff; }
-hr { border-top: 2px solid #222; }
-.table { background: #181818 !important; color: #eee !important; }
-.table th, .table td { vertical-align: middle; border-color: #222 !important; padding: 0.75rem !important; }
-.table-striped > tbody > tr:nth-of-type(odd) { background-color: #222 !important; }
-input, select, textarea { background: #222 !important; color: #eee !important; border: 1px solid #333 !important; }
-.form-control:focus { background: #222 !important; color: #fff !important; border-color: #444 !important; box-shadow: none; }
-.navbar, .navbar-brand { background: #111 !important; }
-.badge { border-radius: 0.5em; }
-.form-check { color: #eee; }
-.form-check-input:checked { background-color: #0d6efd; border-color: #0d6efd; }
-@media (max-width: 768px) {
-  .container { padding-bottom: 80px !important; }
-  .navbar-brand { font-size: 1.1em !important; }
-  .card-title { font-size: 1.1em !important; }
-  .btn { font-size: 1em !important; }
-  .table th, .table td { font-size: 0.9em; padding: 0.5rem !important; }
-}
-@media (min-width: 769px) {
-  .bottom-nav { display: none; }
-}
-</style>
-"""
-
-# =====================
-# Авторизация
+# Flask маршруты
 # =====================
 def is_admin():
     return session.get('user_id') in ADMIN_IDS
@@ -247,9 +265,6 @@ def login():
         return redirect(url_for('admin'))
     return redirect(url_for('index'))
 
-# =====================
-# Главная страница
-# =====================
 @app.route('/')
 def index():
     user_id = session.get('user_id', None)
@@ -266,21 +281,24 @@ def index():
       <h2 class='text-light mb-4'><span class='badge bg-dark fs-4'>Добро пожаловать!</span></h2>
       <div class='row justify-content-center mb-5 g-3'>
         <div class='col-12 col-md-6'>
-          <a href='/shop' class='btn btn-success btn-lg w-100 shadow-sm' style='font-size:1.5em;'>🛒 Магазин</a>
+          <a href='/shop' class='btn btn-success btn-lg w-100 shadow-sm'>🛒 Магазин</a>
         </div>
         <div class='col-12 col-md-6'>
-          <a href='/auction' class='btn btn-primary btn-lg w-100 shadow-sm' style='font-size:1.5em;'>🏆 Аукцион</a>
+          <a href='/auction' class='btn btn-primary btn-lg w-100 shadow-sm'>🏆 Аукцион</a>
         </div>
       </div>
     """
-    if user_id in ADMIN_IDS and not request.args.get('user_id', None):  # Показывать админ только не из WebApp
+    if user_id in ADMIN_IDS and not request.args.get('tgWebApp', None):
         html += "<a href='/admin' class='btn btn-dark w-100 fs-5 shadow-sm'>🔑 Админ-панель</a>"
-    html += "</div></div>"
+    html += """
+      <div class='bottom-nav'>
+        <a href='/shop'>🛒 Магазин</a>
+        <a href='/auction'>🏆 Аукцион</a>
+      </div>
+    </div>
+    """
     return html
 
-# =====================
-# Магазин
-# =====================
 @app.route('/shop')
 def shop():
     conn = sqlite3.connect(DB_PATH)
@@ -314,12 +332,22 @@ def shop():
           </div>
         </div>
         """
-    html += "</div><hr><div class='row mt-4'><div class='col-12'><a href='/' class='btn btn-dark w-100 fs-5 shadow-sm'>⬅️ Назад</a></div></div></div>"
+    html += """
+      </div>
+      <hr>
+      <div class='row mt-4'>
+        <div class='col-12'>
+          <a href='/' class='btn btn-dark w-100 fs-5 shadow-sm'>⬅️ Назад</a>
+        </div>
+      </div>
+      <div class='bottom-nav'>
+        <a href='/'>🏠 Главная</a>
+        <a href='/auction'>🏆 Аукцион</a>
+      </div>
+    </div>
+    """
     return html
 
-# =====================
-# Аукцион
-# =====================
 @app.route('/auction')
 def auction():
     conn = sqlite3.connect(DB_PATH)
@@ -361,12 +389,22 @@ def auction():
           </div>
         </div>
         """
-    html += "</div><hr><div class='row mt-4'><div class='col-12'><a href='/' class='btn btn-dark w-100 fs-5 shadow-sm'>⬅️ Назад</a></div></div></div>"
+    html += """
+      </div>
+      <hr>
+      <div class='row mt-4'>
+        <div class='col-12'>
+          <a href='/' class='btn btn-dark w-100 fs-5 shadow-sm'>⬅️ Назад</a>
+        </div>
+      </div>
+      <div class='bottom-nav'>
+        <a href='/'>🏠 Главная</a>
+        <a href='/shop'>🛒 Магазин</a>
+      </div>
+    </div>
+    """
     return html
 
-# =====================
-# Покупка
-# =====================
 @app.route('/buy', methods=['POST'])
 def buy():
     user_id = session.get('user_id', 'Гость')
@@ -386,11 +424,9 @@ def buy():
     conn.commit()
     conn.close()
     notify_admins_purchase(prod[0], prod[1], user_id)
+    logging.info(f"Покупка: {prod[0]}, {prod[1]}, {user_id}")
     return HEADER + "<div class='container'><div class='alert alert-success'>✅ Заявка на покупку отправлена администратору!</div><a href='/' class='btn btn-primary mt-2'>Назад</a></div>"
 
-# =====================
-# Ставки
-# =====================
 @app.route('/bid', methods=['POST'])
 def bid():
     user_id = session.get('user_id', None)
@@ -410,6 +446,7 @@ def bid():
     c.execute('INSERT INTO bids (lot_id, user_id, amount, time) VALUES (?, ?, ?, ?)', (lot_id, user_id, new_price, int(time.time())))
     conn.commit()
     conn.close()
+    logging.info(f"Ставка: Лот {lot_id}, {new_price}, {user_id}")
     return redirect('/auction')
 
 @app.route('/bid_custom', methods=['POST'])
@@ -430,11 +467,9 @@ def bid_custom():
     c.execute('INSERT INTO bids (lot_id, user_id, amount, time) VALUES (?, ?, ?, ?)', (lot_id, user_id, amount, int(time.time())))
     conn.commit()
     conn.close()
+    logging.info(f"Ставка: Лот {lot_id}, {amount}, {user_id}")
     return redirect('/auction')
 
-# =====================
-# Админ-панель (улучшенная responsive с table-responsive)
-# =====================
 @app.route('/admin')
 def admin():
     if not is_admin():
@@ -452,36 +487,77 @@ def admin():
     <div class='container'>
       <h2 class='text-light mb-4'><span class='badge bg-dark fs-4'>📦 Управление товарами</span></h2>
       <div class='table-responsive'>
-      <table class='table table-dark table-striped table-bordered rounded shadow-sm'>
-        <thead><tr><th>Фото</th><th>Название</th><th>Описание</th><th>Цена</th><th>Кол-во</th><th>Float</th><th>Trade Ban</th><th>Статус</th><th>Действия</th></tr></thead><tbody>
+        <table class='table table-dark table-striped table-bordered rounded shadow-sm'>
+          <thead><tr><th>Фото</th><th>Название</th><th>Описание</th><th>Цена</th><th>Кол-во</th><th>Float</th><th>Trade Ban</th><th>Статус</th><th>Действия</th></tr></thead>
+          <tbody>
     """
     for p in products:
         status = '✅ Продан' if p[5] else '🟢 В продаже'
         float_text = f"{p[7]:.4f}" if p[7] is not None else "N/A"
         ban_text = 'Да' if p[8] else 'Нет'
         img_html = f"<img src='/static/images/{p[6]}' style='max-width:60px;max-height:60px;border-radius:8px;'>" if p[6] else ""
-        html += f"<tr><td>{img_html}</td><td>{p[1]}</td><td>{p[2]}</td><td>{p[3]}</td><td>{p[4]}</td><td>{float_text}</td><td>{ban_text}</td><td>{status}</td><td>"
-        if not p[5]:
-            html += f"<form method='post' action='/mark_sold' style='display:inline;'><input type='hidden' name='product_id' value='{p[0]}'><button class='btn btn-success btn-sm mb-1'>✅ Продан</button></form>"
-        else:
-            html += f"<form method='post' action='/mark_unsold' style='display:inline;'><input type='hidden' name='product_id' value='{p[0]}'><button class='btn btn-warning btn-sm mb-1'>❌ Не продан</button></form>"
-        html += f"<form method='post' action='/delete_product' style='display:inline;'><input type='hidden' name='product_id' value='{p[0]}'><button class='btn btn-danger btn-sm'>🗑️ Удалить</button></form></td></tr>"
-    html += "</tbody></table></div><hr><h2 class='text-light mb-4'><span class='badge bg-success fs-4'>➕ Добавить товар</span></h2>"
+        html += f"""
+        <tr>
+          <td>{img_html}</td>
+          <td>{p[1]}</td>
+          <td>{p[2]}</td>
+          <td>{p[3]}</td>
+          <td>{p[4]}</td>
+          <td>{float_text}</td>
+          <td>{ban_text}</td>
+          <td>{status}</td>
+          <td>
+            <div class='d-flex flex-column gap-1'>
+              {"" if p[5] else f"<form method='post' action='/mark_sold' style='display:inline;'><input type='hidden' name='product_id' value='{p[0]}'><button class='btn btn-success btn-sm mb-1'>✅ Продан</button></form>"}
+              {"" if not p[5] else f"<form method='post' action='/mark_unsold' style='display:inline;'><input type='hidden' name='product_id' value='{p[0]}'><button class='btn btn-warning btn-sm mb-1'>❌ Не продан</button></form>"}
+              <form method='post' action='/delete_product' style='display:inline;'><input type='hidden' name='product_id' value='{p[0]}'><button class='btn btn-danger btn-sm'>🗑️ Удалить</button></form>
+            </div>
+          </td>
+        </tr>
+        """
     html += """
+          </tbody>
+        </table>
+      </div>
+      <hr>
+      <h2 class='text-light mb-4'><span class='badge bg-success fs-4'>➕ Добавить товар</span></h2>
       <form method='post' action='/add_product' class='mb-4' enctype='multipart/form-data'>
-        <input name='name' class='form-control mb-2' placeholder='Название' required>
-        <textarea name='description' class='form-control mb-2' placeholder='Описание' rows='3' required></textarea>
-        <input name='price' type='number' class='form-control mb-2' placeholder='Цена' required>
-        <input name='quantity' type='number' class='form-control mb-2' placeholder='Количество' required>
-        <input name='float_value' type='number' step='0.001' class='form-control mb-2' placeholder='Float (0.00-1.00, опционально)' min='0' max='1'>
-        <div class='form-check mb-2'><input type='checkbox' name='trade_ban' class='form-check-input' id='trade_ban_prod'><label class='form-check-label' for='trade_ban_prod'>Trade Ban</label></div>
-        <input name='image' type='file' accept='image/*' class='form-control mb-2'>
-        <button class='btn btn-primary w-100 shadow-sm'>➕ Добавить</button>
+        <div class='row g-2'>
+          <div class='col-12 col-md-6'>
+            <input name='name' class='form-control mb-2' placeholder='Название' required>
+          </div>
+          <div class='col-12 col-md-6'>
+            <textarea name='description' class='form-control mb-2' placeholder='Описание' rows='3' required></textarea>
+          </div>
+          <div class='col-12 col-md-6'>
+            <input name='price' type='number' class='form-control mb-2' placeholder='Цена' required>
+          </div>
+          <div class='col-12 col-md-6'>
+            <input name='quantity' type='number' class='form-control mb-2' placeholder='Количество' required>
+          </div>
+          <div class='col-12 col-md-6'>
+            <input name='float_value' type='number' step='0.001' class='form-control mb-2' placeholder='Float (0.00-1.00, опционально)' min='0' max='1'>
+          </div>
+          <div class='col-12 col-md-6'>
+            <div class='form-check mb-2'>
+              <input type='checkbox' name='trade_ban' class='form-check-input' id='trade_ban_prod'>
+              <label class='form-check-label' for='trade_ban_prod'>Trade Ban</label>
+            </div>
+          </div>
+          <div class='col-12'>
+            <input name='image' type='file' accept='image/*' class='form-control mb-2'>
+          </div>
+          <div class='col-12'>
+            <button class='btn btn-primary w-100 shadow-sm'>➕ Добавить</button>
+          </div>
+        </div>
       </form>
-      <hr><h2 class='text-light mb-4'><span class='badge bg-primary fs-4'>🏆 Управление лотами</span></h2>
+      <hr>
+      <h2 class='text-light mb-4'><span class='badge bg-primary fs-4'>🏆 Управление лотами</span></h2>
       <div class='table-responsive'>
-      <table class='table table-dark table-striped table-bordered rounded shadow-sm'>
-        <thead><tr><th>Фото</th><th>Название</th><th>Описание</th><th>Ставка</th><th>До конца</th><th>Float</th><th>Trade Ban</th><th>Статус</th><th>Действия</th></tr></thead><tbody>
+        <table class='table table-dark table-striped table-bordered rounded shadow-sm'>
+          <thead><tr><th>Фото</th><th>Название</th><th>Описание</th><th>Ставка</th><th>До конца</th><th>Float</th><th>Trade Ban</th><th>Статус</th><th>Действия</th></tr></thead>
+          <tbody>
     """
     for l in lots:
         time_left = max(0, l[4] - int(time.time()))
@@ -489,37 +565,89 @@ def admin():
         float_text = f"{l[8]:.4f}" if l[8] is not None else "N/A"
         ban_text = 'Да' if l[9] else 'Нет'
         img_html = f"<img src='/static/images/{l[7]}' style='max-width:60px;max-height:60px;border-radius:8px;'>" if l[7] else ""
-        html += f"<tr><td>{img_html}</td><td>{l[1]}</td><td>{l[2]}</td><td>{l[3]}</td><td>{time_left//60} мин {time_left%60} сек</td><td>{float_text}</td><td>{ban_text}</td><td>{status}</td><td>"
-        if l[6]:
-            html += f"<form method='post' action='/stop_lot' style='display:inline;'><input type='hidden' name='lot_id' value='{l[0]}'><button class='btn btn-danger btn-sm mb-1'>⛔ Остановить</button></form>"
-        html += f"<form method='post' action='/delete_lot' style='display:inline;'><input type='hidden' name='lot_id' value='{l[0]}'><button class='btn btn-secondary btn-sm'>🗑️ Удалить</button></form></td></tr>"
-    html += "</tbody></table></div><hr><h2 class='text-light mb-4'><span class='badge bg-primary fs-4'>➕ Добавить лот</span></h2>"
+        html += f"""
+        <tr>
+          <td>{img_html}</td>
+          <td>{l[1]}</td>
+          <td>{l[2]}</td>
+          <td>{l[3]}</td>
+          <td>{time_left//60} мин {time_left%60} сек</td>
+          <td>{float_text}</td>
+          <td>{ban_text}</td>
+          <td>{status}</td>
+          <td>
+            <div class='d-flex flex-column gap-1'>
+              {"" if not l[6] else f"<form method='post' action='/stop_lot' style='display:inline;'><input type='hidden' name='lot_id' value='{l[0]}'><button class='btn btn-danger btn-sm mb-1'>⛔ Остановить</button></form>"}
+              <form method='post' action='/delete_lot' style='display:inline;'><input type='hidden' name='lot_id' value='{l[0]}'><button class='btn btn-secondary btn-sm'>🗑️ Удалить</button></form>
+            </div>
+          </td>
+        </tr>
+        """
     html += """
+          </tbody>
+        </table>
+      </div>
+      <hr>
+      <h2 class='text-light mb-4'><span class='badge bg-primary fs-4'>➕ Добавить лот</span></h2>
       <form method='post' action='/add_lot' class='mb-4' enctype='multipart/form-data'>
-        <input name='name' class='form-control mb-2' placeholder='Название' required>
-        <textarea name='description' class='form-control mb-2' placeholder='Описание' rows='3' required></textarea>
-        <input name='start_price' type='number' class='form-control mb-2' placeholder='Стартовая цена' required>
-        <input name='step' type='number' class='form-control mb-2' placeholder='Шаг ставки' required>
-        <input name='minutes' type='number' class='form-control mb-2' placeholder='Время в минутах' required>
-        <input name='float_value' type='number' step='0.001' class='form-control mb-2' placeholder='Float (0.00-1.00, опционально)' min='0' max='1'>
-        <div class='form-check mb-2'><input type='checkbox' name='trade_ban' class='form-check-input' id='trade_ban_lot'><label class='form-check-label' for='trade_ban_lot'>Trade Ban</label></div>
-        <input name='image' type='file' accept='image/*' class='form-control mb-2'>
-        <button class='btn btn-primary w-100 shadow-sm'>➕ Добавить</button>
+        <div class='row g-2'>
+          <div class='col-12 col-md-6'>
+            <input name='name' class='form-control mb-2' placeholder='Название' required>
+          </div>
+          <div class='col-12 col-md-6'>
+            <textarea name='description' class='form-control mb-2' placeholder='Описание' rows='3' required></textarea>
+          </div>
+          <div class='col-12 col-md-6'>
+            <input name='start_price' type='number' class='form-control mb-2' placeholder='Стартовая цена' required>
+          </div>
+          <div class='col-12 col-md-6'>
+            <input name='step' type='number' class='form-control mb-2' placeholder='Шаг ставки' required>
+          </div>
+          <div class='col-12 col-md-6'>
+            <input name='minutes' type='number' class='form-control mb-2' placeholder='Время в минутах' required>
+          </div>
+          <div class='col-12 col-md-6'>
+            <input name='float_value' type='number' step='0.001' class='form-control mb-2' placeholder='Float (0.00-1.00, опционально)' min='0' max='1'>
+          </div>
+          <div class='col-12 col-md-6'>
+            <div class='form-check mb-2'>
+              <input type='checkbox' name='trade_ban' class='form-check-input' id='trade_ban_lot'>
+              <label class='form-check-label' for='trade_ban_lot'>Trade Ban</label>
+            </div>
+          </div>
+          <div class='col-12'>
+            <input name='image' type='file' accept='image/*' class='form-control mb-2'>
+          </div>
+          <div class='col-12'>
+            <button class='btn btn-primary w-100 shadow-sm'>➕ Добавить</button>
+          </div>
+        </div>
       </form>
-      <hr><h2 class='text-light mb-4'><span class='badge bg-warning fs-4'>🛒 Последние покупки</span></h2>
+      <hr>
+      <h2 class='text-light mb-4'><span class='badge bg-warning fs-4'>🛒 Последние покупки</span></h2>
       <div class='table-responsive'>
-      <table class='table table-dark table-striped table-bordered rounded shadow-sm'>
-        <thead><tr><th>ID</th><th>Товар</th><th>Цена</th><th>Покупатель</th><th>Время</th></tr></thead><tbody>
+        <table class='table table-dark table-striped table-bordered rounded shadow-sm'>
+          <thead><tr><th>ID</th><th>Товар</th><th>Цена</th><th>Покупатель</th><th>Время</th></tr></thead>
+          <tbody>
     """
     for pur in purchases:
         dt = time.strftime('%d.%m.%Y %H:%M', time.localtime(pur[5]))
         html += f"<tr><td>{pur[0]}</td><td>{pur[2]}</td><td>{pur[3]}₽</td><td>{pur[4]}</td><td>{dt}</td></tr>"
-    html += "</tbody></table></div><hr><a href='/' class='btn btn-dark w-100 fs-5 shadow-sm'>⬅️ Назад</a></div>"
+    html += """
+          </tbody>
+        </table>
+      </div>
+      <hr>
+      <a href='/' class='btn btn-dark w-100 fs-5 shadow-sm'>⬅️ Назад</a>
+      <div class='bottom-nav'>
+        <a href='/'>🏠 Главная</a>
+        <a href='/shop'>🛒 Магазин</a>
+        <a href='/auction'>🏆 Аукцион</a>
+      </div>
+    </div>
+    """
     return html
 
-# =====================
-# Добавление/управление
-# =====================
 @app.route('/add_product', methods=['POST'])
 def add_product():
     if not is_admin(): return redirect('/login')
@@ -540,7 +668,7 @@ def add_product():
               (name, desc, price, qty, image_name, float_value, trade_ban))
     conn.commit()
     conn.close()
-    logging.info(f"Добавлен товар: {name}")
+    logging.info(f"Добавлен товар: {name}, {price}, {qty}, Float: {float_value}, Trade Ban: {trade_ban}, Image: {image_name}")
     return redirect('/admin')
 
 @app.route('/add_lot', methods=['POST'])
@@ -565,7 +693,7 @@ def add_lot():
               (name, desc, start_price, step, end_time, start_price, image_name, float_value, trade_ban))
     conn.commit()
     conn.close()
-    logging.info(f"Создан лот: {name}")
+    logging.info(f"Создан лот: {name}, {start_price}, {step}, {minutes} мин, Float: {float_value}, Trade Ban: {trade_ban}, Image: {image_name}")
     return redirect('/admin')
 
 @app.route('/mark_sold', methods=['POST'])
@@ -623,8 +751,15 @@ def delete_lot():
     conn.close()
     return redirect('/admin')
 
+@app.errorhandler(Exception)
+def handle_error(e):
+    import traceback
+    error_text = f"<h3 style='color:red'>Ошибка сервера:</h3><pre>{traceback.format_exc()}</pre>"
+    logging.error(traceback.format_exc())
+    return HEADER + f"<div class='container'>{error_text}</div>", 500
+
 # =====================
-# Фоновая задача аукциона (улучшено уведомление)
+# Фоновая задача: завершение аукционов
 # =====================
 def auction_watcher():
     while True:
@@ -648,19 +783,10 @@ def auction_watcher():
         conn.close()
         time.sleep(5)
 
-threading.Thread(target=auction_watcher, daemon=True).start()
+Thread(target=auction_watcher, daemon=True).start()
 
 # =====================
-# Обработка ошибок
-# =====================
-@app.errorhandler(Exception)
-def handle_error(e):
-    import traceback
-    logging.error(traceback.format_exc())
-    return HEADER + f"<div class='container'><div class='alert alert-danger'>Ошибка сервера. Проверьте логи.</div></div>", 500
-
-# =====================
-# Запуск
+# Запуск Flask и Telegram-бота
 # =====================
 def run_flask():
     port = int(os.environ.get('PORT', 5000))
