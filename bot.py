@@ -121,25 +121,29 @@ dp = Dispatcher()
 router = Router()
 
 def main_kb(user_id=None):
-    # Если пользователь админ, показывать обе кнопки
+    # Если пользователь админ, показывать обе кнопки (используем WebAppInfo с передачей user_id)
     if user_id in ADMIN_IDS:
         return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
-            [types.KeyboardButton(
-                text="🛒 Магазин",
-                web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/")
-            )],
-            [types.KeyboardButton(
-                text="🔑 Админ-панель",
-                web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/admin")
-            )]
+            [
+                types.KeyboardButton(
+                    text="🛒 Магазин",
+                    web_app=types.WebAppInfo(url=f"https://csgosaller-1.onrender.com/?user_id={user_id}")
+                ),
+                types.KeyboardButton(
+                    text="🔑 Админ-панель",
+                    web_app=types.WebAppInfo(url=f"https://csgosaller-1.onrender.com/admin?user_id={user_id}")
+                )
+            ]
         ])
     else:
         # Для обычных пользователей только кнопка "Магазин"
         return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
-            [types.KeyboardButton(
-                text="🛒 Магазин",
-                web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/")
-            )]
+            [
+                types.KeyboardButton(
+                    text="🛒 Магазин",
+                    web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/")
+                )
+            ]
         ])
 
 @router.message(Command("start"))
@@ -289,25 +293,29 @@ dp = Dispatcher()
 router = Router()
 
 def main_kb(user_id=None):
-    # Если пользователь админ, показывать обе кнопки
+    # Если пользователь админ, показывать обе кнопки (используем WebAppInfo с передачей user_id)
     if user_id in ADMIN_IDS:
         return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
-            [types.KeyboardButton(
-                text="🛒 Магазин",
-                web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/")
-            )],
-            [types.KeyboardButton(
-                text="🔑 Админ-панель",
-                web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/admin")
-            )]
+            [
+                types.KeyboardButton(
+                    text="🛒 Магазин",
+                    web_app=types.WebAppInfo(url=f"https://csgosaller-1.onrender.com/?user_id={user_id}")
+                ),
+                types.KeyboardButton(
+                    text="🔑 Админ-панель",
+                    web_app=types.WebAppInfo(url=f"https://csgosaller-1.onrender.com/admin?user_id={user_id}")
+                )
+            ]
         ])
     else:
         # Для обычных пользователей только кнопка "Магазин"
         return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
-            [types.KeyboardButton(
-                text="🛒 Магазин",
-                web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/")
-            )]
+            [
+                types.KeyboardButton(
+                    text="🛒 Магазин",
+                    web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/")
+                )
+            ]
         ])
 
 @router.message(Command("start"))
