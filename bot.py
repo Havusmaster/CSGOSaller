@@ -103,7 +103,7 @@ def init_db():
     except sqlite3.OperationalError:
         pass
     try:
-        c.execute("ALTER TABLE lots ADD COLUMN type TEXT NOT NULL DEFAULT 'weapon'")
+        c.execute("ALTER TABLE lots ADD COLUMN type TEXT NOT NOT NULL DEFAULT 'weapon'")
     except sqlite3.OperationalError:
         pass
     c.execute("""
@@ -136,7 +136,7 @@ app.config['UPLOAD_FOLDER'] = 'static/images/'
 app.config['DEBUG'] = True
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Tailwind CSS
+# Tailwind CSS и JavaScript
 TAILWIND = """
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
@@ -155,35 +155,6 @@ function toggleFloatField(selectId, floatId) {
   floatField.style.display = select.value === 'weapon' ? 'block' : 'none';
 }
 </script>
-"""
-
-# HTML Header для публичных страниц
-HEADER = TAILWIND + """
-<nav class="fixed top-0 left-0 right-0 bg-gray-900 shadow-lg z-50">
-  <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-    <span class="text-2xl font-bold text-orange-500">🛒 CSGO2 Магазин & Аукцион</span>
-    <div class="space-x-4">
-      <a href="/" class="text-gray-300 hover:text-orange-500 transition-colors">🏠 Главная</a>
-      <a href="/shop" class="text-gray-300 hover:text-orange-500 transition-colors">🛒 Магазин</a>
-      <a href="/auction" class="text-gray-300 hover:text-orange-500 transition-colors">🏆 Аукцион</a>
-    </div>
-  </div>
-</nav>
-"""
-
-# HTML Header для админ-панели
-ADMIN_HEADER = TAILWIND + """
-<nav class="fixed top-0 left-0 right-0 bg-gray-900 shadow-lg z-50">
-  <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-    <span class="text-2xl font-bold text-orange-500">🔑 Админ-панель</span>
-    <div class="space-x-4">
-      <a href="/admin/products" class="text-gray-300 hover:text-orange-500 transition-colors">📦 Товары</a>
-      <a href="/admin/lots" class="text-gray-300 hover:text-orange-500 transition-colors">🏆 Лоты</a>
-      <a href="/admin/purchases" class="text-gray-300 hover:text-orange-500 transition-colors">🛒 Покупки</a>
-      <a href="/" class="text-gray-300 hover:text-orange-500 transition-colors">🏠 Главная</a>
-    </div>
-  </div>
-</nav>
 """
 
 # =====================
@@ -260,7 +231,7 @@ def login():
     user_id = session.get('user_id', None)
     logging.info(f"Login route: user_id={user_id}")
     if user_id in ADMIN_IDS:
-        logging.info("User is admin, redirecting to /admin")
+        logging.info("User is admin, redirecting to /admin/products")
         return redirect(url_for('admin_products'))
     logging.info("User not admin, redirecting to /")
     return redirect(url_for('index'))
@@ -279,8 +250,8 @@ def index():
             except:
                 user_id = None
                 logging.error("Failed to parse user_id from query")
-    html = HEADER + """
-    <div class="container mx-auto pt-20 pb-10 px-4 text-center">
+    html = TAILWIND + """
+    <div class="container mx-auto pt-10 pb-10 px-4 text-center">
       <h2 class="text-3xl font-bold text-orange-500 mb-6">Добро пожаловать!</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <a href="/shop" class="bg-green-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-green-700 btn">🛒 Магазин</a>
@@ -305,8 +276,8 @@ def shop():
     c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products WHERE sold=0 AND quantity>0')
     products = c.fetchall()
     conn.close()
-    html = HEADER + """
-    <div class="container mx-auto pt-20 pb-10 px-4">
+    html = TAILWIND + """
+    <div class="container mx-auto pt-10 pb-10 px-4">
       <h2 class="text-3xl font-bold text-green-500 mb-6">🛒 Магазин</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
     """
@@ -347,8 +318,8 @@ def auction():
     c.execute('SELECT id, name, description, current_price, end_time, step, active, image, float_value, trade_ban, type FROM lots WHERE active=1')
     lots = c.fetchall()
     conn.close()
-    html = HEADER + """
-    <div class="container mx-auto pt-20 pb-10 px-4">
+    html = TAILWIND + """
+    <div class="container mx-auto pt-10 pb-10 px-4">
       <h2 class="text-3xl font-bold text-blue-500 mb-6">🏆 Аукцион</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
     """
@@ -400,7 +371,7 @@ def buy():
     prod = c.fetchone()
     if not prod or prod[2] < 1:
         conn.close()
-        return HEADER + '<div class="container mx-auto pt-20 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Товар недоступен.</div><a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
+        return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Товар недоступен.</div><a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
     c.execute('UPDATE products SET quantity=quantity-1 WHERE id=?', (pid,))
     if prod[2] == 1:
         c.execute('UPDATE products SET sold=1 WHERE id=?', (pid,))
@@ -410,7 +381,7 @@ def buy():
     conn.close()
     notify_admins_purchase(prod[0], prod[1], user_id, prod[3], prod[2], prod[4], prod[5], prod[6])
     logging.info(f"Покупка: {prod[0]}, {prod[1]}, {user_id}, {prod[3]}, {prod[2]}, Float: {prod[4]}, Trade Ban: {prod[5]}, Type: {prod[6]}")
-    return HEADER + '<div class="container mx-auto pt-20 pb-10 px-4"><div class="bg-green-600 text-white p-4 rounded-lg">✅ Заявка на покупку отправлена администратору!</div><a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
+    return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-green-600 text-white p-4 rounded-lg">✅ Заявка на покупку отправлена администратору!</div><a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
 
 @app.route('/bid', methods=['POST'])
 def bid():
@@ -425,7 +396,7 @@ def bid():
     lot = c.fetchone()
     if not lot:
         conn.close()
-        return HEADER + '<div class="container mx-auto pt-20 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Лот недоступен.</div></div>'
+        return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Лот недоступен.</div><a href="/auction" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
     new_price = lot[0] + step
     c.execute('UPDATE lots SET current_price=? WHERE id=?', (new_price, lot_id))
     c.execute('INSERT INTO bids (lot_id, user_id, amount, time) VALUES (?, ?, ?, ?)', (lot_id, user_id, new_price, int(time.time())))
@@ -447,7 +418,7 @@ def bid_custom():
     lot = c.fetchone()
     if not lot or amount < lot[0] + lot[2]:
         conn.close()
-        return HEADER + '<div class="container mx-auto pt-20 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Сумма слишком мала.</div></div>'
+        return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Сумма слишком мала.</div><a href="/auction" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
     c.execute('UPDATE lots SET current_price=? WHERE id=?', (amount, lot_id))
     c.execute('INSERT INTO bids (lot_id, user_id, amount, time) VALUES (?, ?, ?, ?)', (lot_id, user_id, amount, int(time.time())))
     conn.commit()
@@ -464,8 +435,8 @@ def admin_products():
     c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products')
     products = c.fetchall()
     conn.close()
-    html = ADMIN_HEADER + """
-    <div class="container mx-auto pt-20 pb-10 px-4">
+    html = TAILWIND + """
+    <div class="container mx-auto pt-10 pb-10 px-4">
       <h2 class="text-3xl font-bold text-gray-300 mb-6">📦 Товары</h2>
       <div class="overflow-x-auto">
         <table class="w-full bg-gray-800 text-gray-300 rounded-lg">
@@ -559,8 +530,8 @@ def admin_lots():
     c.execute('SELECT id, name, description, current_price, end_time, step, active, image, float_value, trade_ban, type FROM lots')
     lots = c.fetchall()
     conn.close()
-    html = ADMIN_HEADER + """
-    <div class="container mx-auto pt-20 pb-10 px-4">
+    html = TAILWIND + """
+    <div class="container mx-auto pt-10 pb-10 px-4">
       <h2 class="text-3xl font-bold text-blue-500 mb-6">🏆 Лоты</h2>
       <div class="overflow-x-auto">
         <table class="w-full bg-gray-800 text-gray-300 rounded-lg">
@@ -657,8 +628,8 @@ def admin_purchases():
     c.execute('SELECT id, product_id, name, price, buyer, time FROM purchases ORDER BY time DESC LIMIT 20')
     purchases = c.fetchall()
     conn.close()
-    html = ADMIN_HEADER + """
-    <div class="container mx-auto pt-20 pb-10 px-4">
+    html = TAILWIND + """
+    <div class="container mx-auto pt-10 pb-10 px-4">
       <h2 class="text-3xl font-bold text-yellow-500 mb-6">🛒 Последние покупки</h2>
       <div class="overflow-x-auto">
         <table class="w-full bg-gray-800 text-gray-300 rounded-lg">
@@ -793,7 +764,7 @@ def handle_error(e):
     import traceback
     error_text = f'<h3 class="text-red-500">Ошибка сервера:</h3><pre class="text-gray-300">{traceback.format_exc()}</pre>'
     logging.error(traceback.format_exc())
-    return HEADER + f'<div class="container mx-auto pt-20 pb-10 px-4">{error_text}</div>', 500
+    return TAILWIND + f'<div class="container mx-auto pt-10 pb-10 px-4">{error_text}<a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>', 500
 
 # =====================
 # Фоновая задача: завершение аукционов
