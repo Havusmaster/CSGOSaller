@@ -121,18 +121,23 @@ dp = Dispatcher()
 router = Router()
 
 def main_kb(user_id=None):
-    # Если пользователь админ, показывать кнопку "Админ-панель"
+    # Если пользователь админ, показывать обе кнопки
     if user_id in ADMIN_IDS:
         return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
+            [types.KeyboardButton(
+                text="🛒 Магазин",
+                web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/")
+            )],
             [types.KeyboardButton(
                 text="🔑 Админ-панель",
                 web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/admin")
             )]
         ])
     else:
+        # Для обычных пользователей только кнопка "Магазин"
         return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
             [types.KeyboardButton(
-                text="🛒 Открыть магазин/аукцион",
+                text="🛒 Магазин",
                 web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/")
             )]
         ])
@@ -284,18 +289,23 @@ dp = Dispatcher()
 router = Router()
 
 def main_kb(user_id=None):
-    # Если пользователь админ, показывать кнопку "Админ-панель"
+    # Если пользователь админ, показывать обе кнопки
     if user_id in ADMIN_IDS:
         return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
+            [types.KeyboardButton(
+                text="🛒 Магазин",
+                web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/")
+            )],
             [types.KeyboardButton(
                 text="🔑 Админ-панель",
                 web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/admin")
             )]
         ])
     else:
+        # Для обычных пользователей только кнопка "Магазин"
         return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
             [types.KeyboardButton(
-                text="🛒 Открыть магазин/аукцион",
+                text="🛒 Магазин",
                 web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/")
             )]
         ])
