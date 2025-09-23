@@ -354,6 +354,66 @@ def buy():
         logging.error(f"Ошибка в /buy: {str(e)}")
         return TAILWIND + f'<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Ошибка: {str(e)}</div><a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
 
+@app.route('/auction', methods=['GET'])
+@app.route('/auction/', methods=['GET'])
+def auction():
+    logging.info("Маршрут /auction вызван")
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        logging.info(f"Подключение к базе данных: {DB_PATH}")
+        c = conn.cursor()
+        c.execute('SELECT id, name, description, current_price, end_time, step, active, image, float_value, trade_ban, type FROM lots WHERE active=1')
+        lots = c.fetchall()
+        logging.info(f"Получено лотов: {len(lots)}")
+        conn.close()
+        html = TAILWIND + """
+        <div class="container mx-auto pt-10 pb-10 px-4">
+          <h2 class="text-3xl font-bold text-blue-500 mb-6">🏆 Аукцион</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        """
+        for l in lots:
+            time_left = max(0, l[4] - int(time.time()))
+            img_html = f'<img src="/static/images/{l[7]}" class="mb-4 w-full rounded-lg object-cover" style="max-height:180px;" alt="{l[1]}">' if l[7] else ""
+            float_text = f"Float: {l[8]:.4f}" if l[8] is not None and l[10] == 'weapon' else ""
+            ban_text = "Trade Ban: Да" if l[9] else "Trade Ban: Нет"
+            type_text = "Тип: Оружие" if l[10] == 'weapon' else "Тип: Агент"
+            html += f"""
+            <div class="bg-gray-800 rounded-lg p-4 card">
+              {img_html}
+              <h5 class="text-xl font-bold text-blue-500">{l[1]}</h5>
+              <p class="text-gray-300">{l[2]}</p>
+              <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">💰 Текущая ставка: {l[3]}₽</span></p>
+              <p class="mt-2"><span class="bg-gray-600 text-white px-2 py-1 rounded">⏳ До конца: {time_left//60} мин {time_left%60} сек</span></p>
+              <p class="mt-2 text-sm text-gray-400">{float_text} {'' if not float_text else ' | '}{ban_text} | {type_text}</p>
+              <form method="post" action="/bid" class="mt-4">
+                <input type="hidden" name="lot_id" value="{l[0]}">
+                <input type="hidden" name="step" value="{l[5]}">
+                <button type="submit" class="bg-yellow-500 text-black w-full py-2 rounded-lg hover:bg-yellow-600 btn">🔼 Ставка +{l[5]}₽</button>
+              </form>
+              <form method="post" action="/bid_custom" class="mt-2">
+                <input type="hidden" name="lot_id" value="{l[0]}">
+                <input type="number" name="amount" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600 mb-2" placeholder="Ваша ставка (₽)" min="{l[3]+l[5]}" required>
+                <button type="submit" class="bg-blue-600 text-white w-full py-2 rounded-lg hover:bg-blue-700 btn">💸 Ввести сумму</button>
+              </form>
+            </div>
+            """
+        html += """
+          </div>
+          <hr class="border-gray-700 my-6">
+          <a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад</a>
+          <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
+            <a href="/" class="text-gray-300 hover:text-orange-500">🏠 Главная</a>
+            <a href="/shop" class="text-gray-300 hover:text-orange-500">🛒 Магазин</a>
+          </div>
+        </div>
+        """
+        return html
+    except Exception as e:
+        if 'conn' in locals():
+            conn.close()
+        logging.error(f"Ошибка в /auction: {str(e)}")
+        return TAILWIND + f'<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Ошибка: {str(e)}</div><a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
+
 @app.route('/bid', methods=['POST'])
 def bid():
     user_id = session.get('user_id', None)
