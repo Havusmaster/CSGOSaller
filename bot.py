@@ -293,9 +293,9 @@ def shop():
           <p class="text-gray-300">{p[2]}</p>
           <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">💰 {p[3]}₽</span> <span class="bg-blue-500 text-white px-2 py-1 rounded">📦 Осталось: {p[4]}</span></p>
           <p class="mt-2 text-sm text-gray-400">{float_text} {'' if not float_text else ' | '}{ban_text} | {type_text}</p>
-          <form method="post" action="/buy" class="mt-4">
+          <form method="POST" action="/buy" class="mt-4">
             <input type="hidden" name="product_id" value="{p[0]}">
-            <button class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn">🛒 Купить</button>
+            <button type="submit" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn">🛒 Купить</button>
           </form>
         </div>
         """
@@ -311,84 +311,48 @@ def shop():
     """
     return html
 
-@app.route('/auction')
-def auction():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('SELECT id, name, description, current_price, end_time, step, active, image, float_value, trade_ban, type FROM lots WHERE active=1')
-    lots = c.fetchall()
-    conn.close()
-    html = TAILWIND + """
-    <div class="container mx-auto pt-10 pb-10 px-4">
-      <h2 class="text-3xl font-bold text-blue-500 mb-6">🏆 Аукцион</h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-    """
-    for l in lots:
-        time_left = max(0, l[4] - int(time.time()))
-        img_html = f'<img src="/static/images/{l[7]}" class="mb-4 w-full rounded-lg object-cover" style="max-height:180px;" alt="{l[1]}">' if l[7] else ""
-        float_text = f"Float: {l[8]:.4f}" if l[8] is not None and l[10] == 'weapon' else ""
-        ban_text = "Trade Ban: Да" if l[9] else "Trade Ban: Нет"
-        type_text = "Тип: Оружие" if l[10] == 'weapon' else "Тип: Агент"
-        html += f"""
-        <div class="bg-gray-800 rounded-lg p-4 card">
-          {img_html}
-          <h5 class="text-xl font-bold text-blue-500">{l[1]}</h5>
-          <p class="text-gray-300">{l[2]}</p>
-          <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">💰 Текущая ставка: {l[3]}₽</span></p>
-          <p class="mt-2"><span class="bg-gray-600 text-white px-2 py-1 rounded">⏳ До конца: {time_left//60} мин {time_left%60} сек</span></p>
-          <p class="mt-2 text-sm text-gray-400">{float_text} {'' if not float_text else ' | '}{ban_text} | {type_text}</p>
-          <form method="post" action="/bid" class="mt-4">
-            <input type="hidden" name="lot_id" value="{l[0]}">
-            <input type="hidden" name="step" value="{l[5]}">
-            <button class="bg-yellow-500 text-black w-full py-2 rounded-lg hover:bg-yellow-600 btn">🔼 Ставка +{l[5]}₽</button>
-          </form>
-          <form method="post" action="/bid_custom" class="mt-2">
-            <input type="hidden" name="lot_id" value="{l[0]}">
-            <input type="number" name="amount" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600 mb-2" placeholder="Ваша ставка (₽)" min="{l[3]+l[5]}" required>
-            <button class="bg-blue-600 text-white w-full py-2 rounded-lg hover:bg-blue-700 btn">💸 Ввести сумму</button>
-          </form>
-        </div>
-        """
-    html += """
-      </div>
-      <hr class="border-gray-700 my-6">
-      <a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад</a>
-      <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
-        <a href="/" class="text-gray-300 hover:text-orange-500">🏠 Главная</a>
-        <a href="/shop" class="text-gray-300 hover:text-orange-500">🛒 Магазин</a>
-      </div>
-    </div>
-    """
-    return html
-
 @app.route('/buy', methods=['POST'])
-async def buy():
+def buy():
+    logging.info("Маршрут /buy вызван")
     user_id = session.get('user_id', None)
-    username = "Гость"
-    if user_id:
-        try:
-            chat = await bot.get_chat(user_id)
-            username = chat.username or f"ID{user_id}"
-        except Exception as e:
-            logging.error(f"Ошибка получения username: {e}")
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    pid = int(request.form['product_id'])
-    c.execute('SELECT name, price, quantity, description, float_value, trade_ban, type FROM products WHERE id=? AND sold=0', (pid,))
-    prod = c.fetchone()
-    if not prod or prod[2] < 1:
+    buyer = "Гость" if not user_id else f"ID{user_id}"
+    logging.info(f"Покупатель: {buyer}, user_id: {user_id}")
+    
+    try:
+        product_id = request.form.get('product_id')
+        logging.info(f"Получен product_id: {product_id}")
+        if not product_id:
+            logging.error("product_id отсутствует в форме")
+            return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Ошибка: ID товара не указан.</div><a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
+        
+        pid = int(product_id)
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('SELECT name, price, quantity, description, float_value, trade_ban, type FROM products WHERE id=? AND sold=0', (pid,))
+        prod = c.fetchone()
+        logging.info(f"Результат запроса к products: {prod}")
+        
+        if not prod or prod[2] < 1:
+            conn.close()
+            logging.error(f"Товар недоступен: id={pid}, prod={prod}")
+            return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Товар недоступен.</div><a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
+        
+        c.execute('UPDATE products SET quantity=quantity-1 WHERE id=?', (pid,))
+        if prod[2] == 1:
+            c.execute('UPDATE products SET sold=1 WHERE id=?', (pid,))
+        c.execute('INSERT INTO purchases (product_id, name, price, buyer, time) VALUES (?, ?, ?, ?, ?)',
+                  (pid, prod[0], prod[1], buyer, int(time.time())))
+        conn.commit()
         conn.close()
-        return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Товар недоступен.</div><a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
-    c.execute('UPDATE products SET quantity=quantity-1 WHERE id=?', (pid,))
-    if prod[2] == 1:
-        c.execute('UPDATE products SET sold=1 WHERE id=?', (pid,))
-    c.execute('INSERT INTO purchases (product_id, name, price, buyer, time) VALUES (?, ?, ?, ?, ?)',
-              (pid, prod[0], prod[1], username, int(time.time())))
-    conn.commit()
-    conn.close()
-    notify_admins_purchase(prod[0], prod[1], username, prod[3], prod[2], prod[4], prod[5], prod[6])
-    logging.info(f"Покупка: {prod[0]}, {prod[1]}, {username}, {prod[3]}, {prod[2]}, Float: {prod[4]}, Trade Ban: {prod[5]}, Type: {prod[6]}")
-    return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-green-600 text-white p-4 rounded-lg">✅ Заявка на покупку отправлена администратору!</div><a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
+        notify_admins_purchase(prod[0], prod[1], buyer, prod[3], prod[2], prod[4], prod[5], prod[6])
+        logging.info(f"Покупка успешна: {prod[0]}, {prod[1]}, {buyer}, {prod[3]}, {prod[2]}, Float: {prod[4]}, Trade Ban: {prod[5]}, Type: {prod[6]}")
+        return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-green-600 text-white p-4 rounded-lg">✅ Заявка на покупку отправлена администратору!</div><a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
+    
+    except Exception as e:
+        if 'conn' in locals():
+            conn.close()
+        logging.error(f"Ошибка в /buy: {str(e)}")
+        return TAILWIND + f'<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Ошибка: {str(e)}</div><a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
 
 @app.route('/bid', methods=['POST'])
 def bid():
@@ -545,7 +509,7 @@ def admin_lots():
           <thead><tr class="bg-gray-900"><th class="p-3">Фото</th><th class="p-3">Название</th><th class="p-3">Описание</th><th class="p-3">Ставка</th><th class="p-3">До конца</th><th class="p-3">Float</th><th class="p-3">Trade Ban</th><th class="p-3">Тип</th><th class="p-3">Статус</th><th class="p-3">Действия</th></tr></thead>
           <tbody>
     """
-    for l in products:
+    for l in lots:
         time_left = max(0, l[4] - int(time.time()))
         status = '🟢 Активен' if l[6] else '⛔ Остановлен'
         float_text = f"{l[8]:.4f}" if l[8] is not None and l[10] == 'weapon' else "N/A"
