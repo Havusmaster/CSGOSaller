@@ -34,8 +34,7 @@ import logging
 import time
 from flask import Flask, render_template_string, request, redirect, url_for, session
 from aiogram import Bot, Dispatcher, types
-from aiogram import Router
-from aiogram.filters import Command, RegexpCommandsFilter
+from aiogram.filters import Command
 import asyncio
 import multiprocessing
 import werkzeug
@@ -162,7 +161,6 @@ function toggleFloatField(selectId, floatId) {
 # =====================
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
-router = Router()
 
 def main_kb(user_id=None):
     if user_id in ADMIN_IDS:
@@ -184,7 +182,7 @@ def main_kb(user_id=None):
             ]
         ])
 
-@router.message(Command("start"))
+@dp.message(Command("start"))
 async def start_cmd(message: types.Message):
     user_id = message.from_user.id
     args = message.text.split()
@@ -227,7 +225,10 @@ async def start_cmd(message: types.Message):
                               f"🎮 {type_text}")
                 for admin_id in ADMIN_IDS:
                     try:
-                        await bot.send_message(admin_id, admin_text)
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        loop.run_until_complete(bot.send_message(admin_id, admin_text))
+                        loop.close()
                     except Exception as e:
                         logging.error(f"Ошибка отправки админу {admin_id}: {e}")
                 logging.info(f"Пользователь ID{user_id} запросил продукт {product_id}: {prod[0]}")
@@ -239,8 +240,6 @@ async def start_cmd(message: types.Message):
     else:
         await message.answer("Добро пожаловать!", reply_markup=main_kb(user_id))
 
-dp.include_router(router)
-
 # =====================
 # Уведомления админам
 # =====================
@@ -251,7 +250,10 @@ def notify_admins_purchase(product, price, buyer, description, quantity, float_v
     text = f"\n🛒 Новая заявка на покупку!\n📦 Товар: {product}\n📜 Описание: {description}\n💰 Цена: {price}₽\n📦 Количество: {quantity}\n🔢 {float_text}\n🚫 {ban_text}\n🎮 {type_text}\n👤 Покупатель: {buyer}"
     for admin_id in ADMIN_IDS:
         try:
-            asyncio.run_coroutine_threadsafe(bot.send_message(admin_id, text), asyncio.new_event_loop())
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(bot.send_message(admin_id, text))
+            loop.close()
         except Exception as e:
             logging.error(f"Ошибка отправки админу: {e}")
     logging.info(f"Покупка: {product}, {price}, {buyer}, {description}, {quantity}, {float_text}, {ban_text}, {type_text}")
@@ -260,7 +262,10 @@ def notify_admins_auction(lot, price, winner):
     text = f"\n🏆 Аукцион завершён!\n📦 Лот: {lot}\n💰 Цена: {price}\n👤 Победитель: {winner}"
     for admin_id in ADMIN_IDS:
         try:
-            asyncio.run_coroutine_threadsafe(bot.send_message(admin_id, text), asyncio.new_event_loop())
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(bot.send_message(admin_id, text))
+            loop.close()
         except Exception as e:
             logging.error(f"Ошибка отправки админу: {e}")
     logging.info(f"Аукцион: {lot}, {price}, {winner}")
@@ -328,7 +333,7 @@ def shop():
       <h2 class="text-3xl font-bold text-green-500 mb-6">🛒 Магазин</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
     """
-    bot_username = "YourBot"  # Замените на реальный username бота, например, "@YourBot"
+    bot_username = "CSGOSallerBot"  # Замените на реальный username бота, например, "CSGOSallerBot"
     for p in products:
         img_html = f'<img src="/static/images/{p[6]}" class="mb-4 w-full rounded-lg object-cover" style="max-height:180px;" alt="{p[1]}">' if p[6] else ""
         float_text = f"Float: {p[7]:.4f}" if p[7] is not None and p[9] == 'weapon' else ""
@@ -861,7 +866,10 @@ def auction_watcher():
                 notify_admins_auction(lot[1], lot[2], winner_id or 'Нет победителя')
                 if winner_id:
                     try:
-                        asyncio.run_coroutine_threadsafe(bot.send_message(winner_id, f"🎉 Поздравляем! Вы выиграли аукцион: {lot[1]} за {lot[2]}₽"), asyncio.new_event_loop())
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        loop.run_until_complete(bot.send_message(winner_id, f"🎉 Поздравляем! Вы выиграли аукцион: {lot[1]} за {lot[2]}₽"))
+                        loop.close()
                     except Exception as e:
                         logging.error(f"Ошибка уведомления победителя: {e}")
         conn.close()
@@ -873,7 +881,7 @@ Thread(target=auction_watcher, daemon=True).start()
 # Запуск Flask и Telegram-бота
 # =====================
 def run_flask():
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port, debug=False)
 
 def run_aiogram():
