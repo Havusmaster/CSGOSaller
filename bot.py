@@ -1,15 +1,4 @@
-import os
-import sqlite3
-import logging
-import time
-from flask import Flask, render_template_string, request, redirect, url_for, session
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command
-import asyncio
-import multiprocessing
-import werkzeug
-from threading import Thread
-
+# -*- coding: utf-8 -*-
 """
 README
 =======
@@ -27,17 +16,33 @@ WebApp:
 Конфиг:
 - BOT_TOKEN = "ВАШ_ТОКЕН"
 - ADMIN_IDS = [id1, id2]
-- ADMIN_USERNAME = "ВАШ_АДМИН_ИМЯ"
-- BOT_USERNAME = "ВАШ_БОТ_ИМЯ"
+- ADMIN_USERNAME = "ВАШ_АДМИН_ИМЯ" (без @, например, AdminUser для @AdminUser, или +group_id для группы)
+- BOT_USERNAME = "ВАШ_БОТ_ИМЯ" (без @, например, CSGOSallerBot)
+
 """
 
 # =====================
 # Конфиг
 # =====================
 BOT_TOKEN = "7504123410:AAEznGqRafbyrBx2e34HzsxztWV201HRMxE"  # Замените на реальный токен
-ADMIN_IDS = [1939282952, 5266027747]  # Замените на реальные ID администраторов
-ADMIN_USERNAME = "sarv4you"  # Замените на реальное имя администратора без @ (например, MyAdmin для @MyAdmin)
-BOT_USERNAME = "sarv4you"  # Замените на реальное имя бота без @ (например, MyBot)
+ADMIN_IDS = [1939282952, 5266027747]  # Список ID админов
+ADMIN_USERNAME = "otzvuz"  # Замените на имя админа без @ или ссылку на группу (например, +group_id)
+BOT_USERNAME = "CSGOSallerBot"  # Замените на имя бота без @
+
+# =====================
+# Импорт библиотек
+# =====================
+import os
+import sqlite3
+import logging
+import time
+from flask import Flask, render_template_string, request, redirect, url_for, session
+from aiogram import Bot, Dispatcher, types
+from aiogram.filters import Command
+import asyncio
+import multiprocessing
+import werkzeug
+from threading import Thread
 
 # =====================
 # Логирование
@@ -184,11 +189,12 @@ def main_kb(user_id=None):
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message):
     user_id = message.from_user.id
+    username = message.from_user.username or f"ID{user_id}"
     args = message.text.split()
     if len(args) > 1 and args[1].startswith("product_"):
         try:
             product_id = int(args[1].replace("product_", ""))
-            logging.info(f"Обработка /start product_{product_id} для user_id: {user_id}")
+            logging.info(f"Обработка /start product_{product_id} для user_id: {user_id}, username: {username}")
             conn = sqlite3.connect(DB_PATH)
             c = conn.cursor()
             c.execute('SELECT name, description, price, quantity, float_value, trade_ban, type FROM products WHERE id=? AND sold=0 AND quantity>0', (product_id,))
@@ -206,15 +212,17 @@ async def start_cmd(message: types.Message):
                         f"🚫 {ban_text}\n"
                         f"🎮 {type_text}\n\n"
                         f"Напишите администратору для покупки!")
+                admin_url = f"https://t.me/{ADMIN_USERNAME}" if not ADMIN_USERNAME.startswith('+') else f"https://t.me/{ADMIN_USERNAME}"
                 await message.answer(text, reply_markup=types.ReplyKeyboardMarkup(
                     resize_keyboard=True,
                     keyboard=[
-                        [types.KeyboardButton(text="📩 Написать админу", url=f"https://t.me/{ADMIN_USERNAME}")],
+                        [types.KeyboardButton(text="📩 Написать админу", url=admin_url)],
                         [types.KeyboardButton(text="🛒 Вернуться в магазин", web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/shop"))]
                     ]
                 ))
                 # Уведомляем админов
-                admin_text = (f"🔔 Пользователь ID{user_id} заинтересован в товаре!\n"
+                user_link = f"@{username}" if message.from_user.username else f"https://t.me/+{user_id}"
+                admin_text = (f"🔔 Пользователь {user_link} заинтересован в товаре!\n"
                               f"📦 Товар: {prod[0]}\n"
                               f"📜 Описание: {prod[1]}\n"
                               f"💰 Цена: {prod[2]}₽\n"
@@ -225,9 +233,10 @@ async def start_cmd(message: types.Message):
                 for admin_id in ADMIN_IDS:
                     try:
                         await bot.send_message(admin_id, admin_text)
+                        logging.info(f"Уведомление отправлено админу ID{admin_id} о продукте {product_id}")
                     except Exception as e:
-                        logging.error(f"Ошибка отправки админу {admin_id}: {e}")
-                logging.info(f"Пользователь ID{user_id} запросил продукт {product_id}: {prod[0]}")
+                        logging.error(f"Ошибка отправки админу ID{admin_id}: {e}")
+                logging.info(f"Пользователь {username} (ID{user_id}) запросил продукт {product_id}: {prod[0]}")
             else:
                 await message.answer("Товар не найден или недоступен.", reply_markup=main_kb(user_id))
         except Exception as e:
@@ -250,9 +259,9 @@ def notify_admins_purchase(product, price, buyer, description, quantity, float_v
             asyncio.set_event_loop(loop)
             loop.run_until_complete(bot.send_message(admin_id, text))
             loop.close()
+            logging.info(f"Уведомление о покупке отправлено админу ID{admin_id}: {product}")
         except Exception as e:
-            logging.error(f"Ошибка отправки админу: {e}")
-    logging.info(f"Покупка: {product}, {price}, {buyer}, {description}, {quantity}, {float_text}, {ban_text}, {type_text}")
+            logging.error(f"Ошибка отправки админу ID{admin_id}: {e}")
 
 def notify_admins_auction(lot, price, winner):
     text = f"\n🏆 Аукцион завершён!\n📦 Лот: {lot}\n💰 Цена: {price}\n👤 Победитель: {winner}"
@@ -262,9 +271,9 @@ def notify_admins_auction(lot, price, winner):
             asyncio.set_event_loop(loop)
             loop.run_until_complete(bot.send_message(admin_id, text))
             loop.close()
+            logging.info(f"Уведомление об аукционе отправлено админу ID{admin_id}: {lot}")
         except Exception as e:
-            logging.error(f"Ошибка отправки админу: {e}")
-    logging.info(f"Аукцион: {lot}, {price}, {winner}")
+            logging.error(f"Ошибка отправки админу ID{admin_id}: {e}")
 
 # =====================
 # Flask маршруты
