@@ -16,6 +16,8 @@ WebApp:
 Конфиг:
 - BOT_TOKEN = "ВАШ_ТОКЕН"
 - ADMIN_IDS = [id1, id2]
+- ADMIN_USERNAME = "ВАШ_АДМИН_ИМЯ"
+- BOT_USERNAME = "ВАШ_БОТ_ИМЯ"
 
 """
 
@@ -24,6 +26,8 @@ WebApp:
 # =====================
 BOT_TOKEN = "7504123410:AAEznGqRafbyrBx2e34HzsxztWV201HRMxE"  # Замените на реальный токен
 ADMIN_IDS = [1939282952, 5266027747]
+ADMIN_USERNAME = "@sarv4you"  # Замените на реальное имя администратора без @ (например, AdminUser для @AdminUser)
+BOT_USERNAME = "CSGOSallerBot"  # Замените на реальное имя бота без @ (например, CSGOSallerBot)
 
 # =====================
 # Импорт библиотек
@@ -210,7 +214,7 @@ async def start_cmd(message: types.Message):
                 await message.answer(text, reply_markup=types.ReplyKeyboardMarkup(
                     resize_keyboard=True,
                     keyboard=[
-                        [types.KeyboardButton(text="📩 Написать админу", url=f"https://t.me/{ADMIN_IDS[0]}")],
+                        [types.KeyboardButton(text="📩 Написать админу", url=f"https://t.me/{ADMIN_USERNAME}")],
                         [types.KeyboardButton(text="🛒 Вернуться в магазин", web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/shop"))]
                     ]
                 ))
@@ -333,7 +337,6 @@ def shop():
       <h2 class="text-3xl font-bold text-green-500 mb-6">🛒 Магазин</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
     """
-    bot_username = "CSGOSallerBot"  # Замените на реальный username бота, например, "CSGOSallerBot"
     for p in products:
         img_html = f'<img src="/static/images/{p[6]}" class="mb-4 w-full rounded-lg object-cover" style="max-height:180px;" alt="{p[1]}">' if p[6] else ""
         float_text = f"Float: {p[7]:.4f}" if p[7] is not None and p[9] == 'weapon' else ""
@@ -346,7 +349,7 @@ def shop():
           <p class="text-gray-300">{p[2]}</p>
           <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">💰 {p[3]}₽</span> <span class="bg-blue-500 text-white px-2 py-1 rounded">📦 Осталось: {p[4]}</span></p>
           <p class="mt-2 text-sm text-gray-400">{float_text} {'' if not float_text else ' | '}{ban_text} | {type_text}</p>
-          <a href="https://t.me/{bot_username}?start=product_{p[0]}" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn mt-4 block text-center">📩 Написать админу</a>
+          <a href="https://t.me/{BOT_USERNAME}?start=product_{p[0]}" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn mt-4 block text-center">📩 Написать админу</a>
         </div>
         """
     html += """
