@@ -1,11 +1,22 @@
-# -*- coding: utf-8 -*-
+import os
+import sqlite3
+import logging
+import time
+from flask import Flask, render_template_string, request, redirect, url_for, session
+from aiogram import Bot, Dispatcher, types
+from aiogram.filters import Command
+import asyncio
+import multiprocessing
+import werkzeug
+from threading import Thread
+
 """
 README
 =======
 
 Требования:
 - Python 3.10+
-- pip install aiogram flask
+- pip install aiogram flask gunicorn werkzeug
 
 Запуск:
 - python bot.py
@@ -18,31 +29,15 @@ WebApp:
 - ADMIN_IDS = [id1, id2]
 - ADMIN_USERNAME = "ВАШ_АДМИН_ИМЯ"
 - BOT_USERNAME = "ВАШ_БОТ_ИМЯ"
-
 """
 
 # =====================
 # Конфиг
 # =====================
 BOT_TOKEN = "7504123410:AAEznGqRafbyrBx2e34HzsxztWV201HRMxE"  # Замените на реальный токен
-ADMIN_IDS = [1939282952, 5266027747]
-ADMIN_USERNAME = "@sarv4you"  # Замените на реальное имя администратора без @ (например, AdminUser для @AdminUser)
-BOT_USERNAME = "CSGOSallerBot"  # Замените на реальное имя бота без @ (например, CSGOSallerBot)
-
-# =====================
-# Импорт библиотек
-# =====================
-import os
-import sqlite3
-import logging
-import time
-from flask import Flask, render_template_string, request, redirect, url_for, session
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command
-import asyncio
-import multiprocessing
-import werkzeug
-from threading import Thread
+ADMIN_IDS = [1939282952, 5266027747]  # Замените на реальные ID администраторов
+ADMIN_USERNAME = "@sarv4you"  # Замените на реальное имя администратора без @ (например, MyAdmin для @MyAdmin)
+BOT_USERNAME = "@sarv4you"  # Замените на реальное имя бота без @ (например, MyBot)
 
 # =====================
 # Логирование
@@ -229,10 +224,7 @@ async def start_cmd(message: types.Message):
                               f"🎮 {type_text}")
                 for admin_id in ADMIN_IDS:
                     try:
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                        loop.run_until_complete(bot.send_message(admin_id, admin_text))
-                        loop.close()
+                        await bot.send_message(admin_id, admin_text)
                     except Exception as e:
                         logging.error(f"Ошибка отправки админу {admin_id}: {e}")
                 logging.info(f"Пользователь ID{user_id} запросил продукт {product_id}: {prod[0]}")
