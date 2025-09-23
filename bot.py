@@ -35,7 +35,7 @@ import time
 from flask import Flask, render_template_string, request, redirect, url_for, session
 from aiogram import Bot, Dispatcher, types
 from aiogram import Router
-from aiogram.filters import Command
+from aiogram.filters import Command, RegexpCommandsFilter
 import asyncio
 import multiprocessing
 import werkzeug
@@ -187,10 +187,57 @@ def main_kb(user_id=None):
 @router.message(Command("start"))
 async def start_cmd(message: types.Message):
     user_id = message.from_user.id
-    await message.answer(
-        "Добро пожаловать!",
-        reply_markup=main_kb(user_id)
-    )
+    args = message.text.split()
+    if len(args) > 1 and args[1].startswith("product_"):
+        try:
+            product_id = int(args[1].replace("product_", ""))
+            logging.info(f"Обработка /start product_{product_id} для user_id: {user_id}")
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute('SELECT name, description, price, quantity, float_value, trade_ban, type FROM products WHERE id=? AND sold=0 AND quantity>0', (product_id,))
+            prod = c.fetchone()
+            conn.close()
+            if prod:
+                float_text = f"Float: {prod[4]:.4f}" if prod[4] is not None and prod[6] == 'weapon' else "Float: N/A"
+                ban_text = "Trade Ban: Да" if prod[5] else "Trade Ban: Нет"
+                type_text = "Тип: Оружие" if prod[6] == 'weapon' else "Тип: Агент"
+                text = (f"📦 Товар: {prod[0]}\n"
+                        f"📜 Описание: {prod[1]}\n"
+                        f"💰 Цена: {prod[2]}₽\n"
+                        f"📦 Количество: {prod[3]}\n"
+                        f"🔢 {float_text}\n"
+                        f"🚫 {ban_text}\n"
+                        f"🎮 {type_text}\n\n"
+                        f"Напишите администратору для покупки!")
+                await message.answer(text, reply_markup=types.ReplyKeyboardMarkup(
+                    resize_keyboard=True,
+                    keyboard=[
+                        [types.KeyboardButton(text="📩 Написать админу", url=f"https://t.me/{ADMIN_IDS[0]}")],
+                        [types.KeyboardButton(text="🛒 Вернуться в магазин", web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/shop"))]
+                    ]
+                ))
+                # Уведомляем админов
+                admin_text = (f"🔔 Пользователь ID{user_id} заинтересован в товаре!\n"
+                              f"📦 Товар: {prod[0]}\n"
+                              f"📜 Описание: {prod[1]}\n"
+                              f"💰 Цена: {prod[2]}₽\n"
+                              f"📦 Количество: {prod[3]}\n"
+                              f"🔢 {float_text}\n"
+                              f"🚫 {ban_text}\n"
+                              f"🎮 {type_text}")
+                for admin_id in ADMIN_IDS:
+                    try:
+                        await bot.send_message(admin_id, admin_text)
+                    except Exception as e:
+                        logging.error(f"Ошибка отправки админу {admin_id}: {e}")
+                logging.info(f"Пользователь ID{user_id} запросил продукт {product_id}: {prod[0]}")
+            else:
+                await message.answer("Товар не найден или недоступен.", reply_markup=main_kb(user_id))
+        except Exception as e:
+            logging.error(f"Ошибка обработки /start product_{product_id}: {str(e)}")
+            await message.answer("Произошла ошибка. Попробуйте позже.", reply_markup=main_kb(user_id))
+    else:
+        await message.answer("Добро пожаловать!", reply_markup=main_kb(user_id))
 
 dp.include_router(router)
 
@@ -281,6 +328,7 @@ def shop():
       <h2 class="text-3xl font-bold text-green-500 mb-6">🛒 Магазин</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
     """
+    bot_username = "YourBot"  # Замените на реальный username бота, например, "@YourBot"
     for p in products:
         img_html = f'<img src="/static/images/{p[6]}" class="mb-4 w-full rounded-lg object-cover" style="max-height:180px;" alt="{p[1]}">' if p[6] else ""
         float_text = f"Float: {p[7]:.4f}" if p[7] is not None and p[9] == 'weapon' else ""
@@ -293,10 +341,7 @@ def shop():
           <p class="text-gray-300">{p[2]}</p>
           <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">💰 {p[3]}₽</span> <span class="bg-blue-500 text-white px-2 py-1 rounded">📦 Осталось: {p[4]}</span></p>
           <p class="mt-2 text-sm text-gray-400">{float_text} {'' if not float_text else ' | '}{ban_text} | {type_text}</p>
-          <form method="POST" action="/buy" class="mt-4">
-            <input type="hidden" name="product_id" value="{p[0]}">
-            <button type="submit" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn">🛒 Купить</button>
-          </form>
+          <a href="https://t.me/{bot_username}?start=product_{p[0]}" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn mt-4 block text-center">📩 Написать админу</a>
         </div>
         """
     html += """
