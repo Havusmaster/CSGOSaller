@@ -597,7 +597,86 @@ def admin_all_products():
       <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
         <a href="/admin/products" class="text-gray-300 hover:text-orange-500">📦 Товары</a>
         <a href="/admin/all_products" class="text-gray-300 hover:text-orange-500">📋 Все товары</a>
-        <a href="/admin/lots" class="text-gray-300 hover:text-orange-500">🏆 Лоты</a>
+        <a href="/admin/all_lots" class="text-gray-300 hover:text-orange-500">🏆 Все лоты</a>
+      </div>
+    </div>
+    """
+    return html
+
+@app.route('/admin/all_lots')
+def admin_all_lots():
+    if not is_admin():
+        return redirect('/login')
+    
+    # Подключение к базе данных и получение всех лотов
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('SELECT id, name, description, current_price, end_time, step, active, image, float_value, trade_ban, type FROM lots ORDER BY id DESC')
+    lots = c.fetchall()
+    conn.close()
+
+    html = TAILWIND + """
+    <div class="container mx-auto pt-10 pb-10 px-4">
+      <h2 class="text-3xl font-bold text-blue-500 mb-6">🏆 Все лоты</h2>
+      <div class="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <input id="searchInput" type="text" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Поиск по ID, названию или описанию" onkeyup="searchItems('allLotsTable')">
+        <select id="typeFilter" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" onchange="filterItemsByType('allLotsTable')">
+          <option value="all">Все</option>
+          <option value="weapon">Оружия</option>
+          <option value="agent">Агенты</option>
+        </select>
+      </div>
+      <div class="overflow-x-auto">
+        <table id="allLotsTable" class="w-full bg-gray-800 text-gray-300 rounded-lg">
+          <thead><tr class="bg-gray-900"><th class="p-3">ID</th><th class="p-3">Фото</th><th class="p-3">Название</th><th class="p-3">Описание</th><th class="p-3">Текущая ставка</th><th class="p-3">До конца</th><th class="p-3">Float</th><th class="p-3">Trade Ban</th><th class="p-3">Тип</th><th class="p-3">Статус</th><th class="p-3">Действия</th></tr></thead>
+          <tbody>
+    """
+    
+    if lots:
+        for lot in lots:
+            time_left = max(0, lot[4] - int(time.time()))
+            status = '🟢 Активен' if lot[6] else '⛔ Остановлен'
+            float_text = f"{lot[8]:.4f}" if lot[8] is not None and lot[10] == 'weapon' else "N/A"
+            ban_text = 'Да' if lot[9] else 'Нет'
+            type_text = 'Оружие' if lot[10] == 'weapon' else 'Агент'
+            img_html = f'<img src="/static/images/{lot[7]}" class="w-16 h-16 rounded-lg object-cover" alt="{lot[1]}">' if lot[7] else ""
+            html += f"""
+            <tr class="border-b border-gray-700">
+              <td class="p-3">{lot[0]}</td>
+              <td class="p-3">{img_html}</td>
+              <td class="p-3">{lot[1]}</td>
+              <td class="p-3">{lot[2]}</td>
+              <td class="p-3">{lot[3]}₽</td>
+              <td class="p-3">{time_left//60} мин {time_left%60} сек</td>
+              <td class="p-3">{float_text}</td>
+              <td class="p-3">{ban_text}</td>
+              <td class="p-3">{type_text}</td>
+              <td class="p-3">{status}</td>
+              <td class="p-3">
+                <div class="flex flex-col gap-2">
+                  {'' if not lot[6] else f'<form method="post" action="/stop_lot"><input type="hidden" name="lot_id" value="{lot[0]}"><button class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 btn text-sm">⛔ Остановить</button></form>'}
+                  <form method="post" action="/delete_lot"><input type="hidden" name="lot_id" value="{lot[0]}"><button class="bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 btn text-sm">🗑️ Удалить</button></form>
+                </div>
+              </td>
+            </tr>
+            """
+    else:
+        html += """
+        <tr>
+          <td colspan="11" class="p-3 text-center text-gray-400">Нет лотов</td>
+        </tr>
+        """
+    
+    html += """
+          </tbody>
+        </table>
+      </div>
+      <hr class="border-gray-700 my-6">
+      <a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад</a>
+      <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
+        <a href="/admin/products" class="text-gray-300 hover:text-orange-500">📦 Товары</a>
+        <a href="/admin/all_products" class="text-gray-300 hover:text-orange-500">📋 Все товары</a>
+        <a href="/admin/all_lots" class="text-gray-300 hover:text-orange-500">🏆 Все лоты</a>
       </div>
     </div>
     """
@@ -699,7 +778,7 @@ def admin_products():
       <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
         <a href="/admin/products" class="text-gray-300 hover:text-orange-500">📦 Товары</a>
         <a href="/admin/all_products" class="text-gray-300 hover:text-orange-500">📋 Все товары</a>
-        <a href="/admin/lots" class="text-gray-300 hover:text-orange-500">🏆 Лоты</a>
+        <a href="/admin/all_lots" class="text-gray-300 hover:text-orange-500">🏆 Все лоты</a>
       </div>
     </div>
     """
@@ -803,7 +882,7 @@ def admin_lots():
       <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
         <a href="/admin/products" class="text-gray-300 hover:text-orange-500">📦 Товары</a>
         <a href="/admin/all_products" class="text-gray-300 hover:text-orange-500">📋 Все товары</a>
-        <a href="/admin/lots" class="text-gray-300 hover:text-orange-500">🏆 Лоты</a>
+        <a href="/admin/all_lots" class="text-gray-300 hover:text-orange-500">🏆 Все лоты</a>
       </div>
     </div>
     """
