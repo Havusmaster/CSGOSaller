@@ -528,6 +528,14 @@ def bid_custom():
 def admin_all_products():
     if not is_admin():
         return redirect('/login')
+    
+    # Подключение к базе данных и получение всех товаров
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products ORDER BY id DESC')
+    products = c.fetchall()
+    conn.close()
+
     html = TAILWIND + """
     <div class="container mx-auto pt-10 pb-10 px-4">
       <h2 class="text-3xl font-bold text-purple-500 mb-6">📋 Все товары</h2>
@@ -541,11 +549,46 @@ def admin_all_products():
       </div>
       <div class="overflow-x-auto">
         <table id="allItemsTable" class="w-full bg-gray-800 text-gray-300 rounded-lg">
-          <thead><tr class="bg-gray-900"><th class="p-3">ID</th><th class="p-3">Фото</th><th class="p-3">Название</th><th class="p-3">Описание</th><th class="p-3">Цена</th><th class="p-3">Кол-во/Время</th><th class="p-3">Float</th><th class="p-3">Trade Ban</th><th class="p-3">Тип</th><th class="p-3">Статус</th><th class="p-3">Действия</th></tr></thead>
+          <thead><tr class="bg-gray-900"><th class="p-3">ID</th><th class="p-3">Фото</th><th class="p-3">Название</th><th class="p-3">Описание</th><th class="p-3">Цена</th><th class="p-3">Кол-во</th><th class="p-3">Float</th><th class="p-3">Trade Ban</th><th class="p-3">Тип</th><th class="p-3">Статус</th><th class="p-3">Действия</th></tr></thead>
           <tbody>
-            <tr>
-              <td colspan="11" class="p-3 text-center text-gray-400">Просмотр товаров отключен</td>
+    """
+    
+    if products:
+        for product in products:
+            status = '✅ Продан' if product[5] else '🟢 В продаже'
+            float_text = f"{product[7]:.4f}" if product[7] is not None and product[9] == 'weapon' else "N/A"
+            ban_text = 'Да' if product[8] else 'Нет'
+            type_text = 'Оружие' if product[9] == 'weapon' else 'Агент'
+            img_html = f'<img src="/static/images/{product[6]}" class="w-16 h-16 rounded-lg object-cover" alt="{product[1]}">' if product[6] else ""
+            html += f"""
+            <tr class="border-b border-gray-700">
+              <td class="p-3">{product[0]}</td>
+              <td class="p-3">{img_html}</td>
+              <td class="p-3">{product[1]}</td>
+              <td class="p-3">{product[2]}</td>
+              <td class="p-3">{product[3]}₽</td>
+              <td class="p-3">{product[4]}</td>
+              <td class="p-3">{float_text}</td>
+              <td class="p-3">{ban_text}</td>
+              <td class="p-3">{type_text}</td>
+              <td class="p-3">{status}</td>
+              <td class="p-3">
+                <div class="flex flex-col gap-2">
+                  {'' if product[5] else f'<form method="post" action="/mark_sold"><input type="hidden" name="product_id" value="{product[0]}"><button class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 btn text-sm">✅ Продан</button></form>'}
+                  {'' if not product[5] else f'<form method="post" action="/mark_unsold"><input type="hidden" name="product_id" value="{product[0]}"><button class="bg-yellow-500 text-black px-3 py-1 rounded hover:bg-yellow-600 btn text-sm">❌ Не продан</button></form>'}
+                  <form method="post" action="/delete_product"><input type="hidden" name="product_id" value="{product[0]}"><button class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 btn text-sm">🗑️ Удалить</button></form>
+                </div>
+              </td>
             </tr>
+            """
+    else:
+        html += """
+        <tr>
+          <td colspan="11" class="p-3 text-center text-gray-400">Нет товаров</td>
+        </tr>
+        """
+    
+    html += """
           </tbody>
         </table>
       </div>
