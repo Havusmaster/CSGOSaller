@@ -466,14 +466,27 @@ def admin_all_products():
         return redirect('/login')
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products')
-    products = c.fetchall()
-    c.execute('SELECT id, name, description, current_price, end_time, step, active, image, float_value, trade_ban, type FROM lots')
-    lots = c.fetchall()
+    c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products ORDER BY id DESC LIMIT 1')
+    product = c.fetchone()
+    c.execute('SELECT id, name, description, current_price, end_time, step, active, image, float_value, trade_ban, type FROM lots ORDER BY id DESC LIMIT 1')
+    lot = c.fetchone()
     conn.close()
+    
+    latest_item = None
+    item_type = None
+    if product and lot:
+        latest_item = product if product[0] > lot[0] else lot
+        item_type = 'product' if product[0] > lot[0] else 'lot'
+    elif product:
+        latest_item = product
+        item_type = 'product'
+    elif lot:
+        latest_item = lot
+        item_type = 'lot'
+    
     html = TAILWIND + """
     <div class="container mx-auto pt-10 pb-10 px-4">
-      <h2 class="text-3xl font-bold text-purple-500 mb-6">📋 Все товары</h2>
+      <h2 class="text-3xl font-bold text-purple-500 mb-6">📋 Последний добавленный товар/лот</h2>
       <div class="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <input id="searchInput" type="text" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Поиск по ID, названию или описанию" onkeyup="searchItems('allItemsTable')">
         <select id="typeFilter" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" onchange="filterItemsByType('allItemsTable')">
@@ -487,59 +500,68 @@ def admin_all_products():
           <thead><tr class="bg-gray-900"><th class="p-3">ID</th><th class="p-3">Фото</th><th class="p-3">Название</th><th class="p-3">Описание</th><th class="p-3">Цена</th><th class="p-3">Кол-во/Время</th><th class="p-3">Float</th><th class="p-3">Trade Ban</th><th class="p-3">Тип</th><th class="p-3">Статус</th><th class="p-3">Действия</th></tr></thead>
           <tbody>
     """
-    for p in products:
-        status = '✅ Продан' if p[5] else '🟢 В продаже'
-        float_text = f"{p[7]:.4f}" if p[7] is not None and p[9] == 'weapon' else "N/A"
-        ban_text = 'Да' if p[8] else 'Нет'
-        type_text = 'Оружие' if p[9] == 'weapon' else 'Агент'
-        img_html = f'<img src="/static/images/{p[6]}" class="w-16 h-16 rounded-lg object-cover" alt="{p[1]}">' if p[6] else ""
-        html += f"""
-        <tr class="border-b border-gray-700">
-          <td class="p-3">P{p[0]}</td>
-          <td class="p-3">{img_html}</td>
-          <td class="p-3">{p[1]}</td>
-          <td class="p-3">{p[2]}</td>
-          <td class="p-3">{p[3]}₽</td>
-          <td class="p-3">{p[4]}</td>
-          <td class="p-3">{float_text}</td>
-          <td class="p-3">{ban_text}</td>
-          <td class="p-3">{type_text}</td>
-          <td class="p-3">{status}</td>
-          <td class="p-3">
-            <div class="flex flex-col gap-2">
-              {'' if p[5] else f'<form method="post" action="/mark_sold"><input type="hidden" name="product_id" value="{p[0]}"><button class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 btn text-sm">✅ Продан</button></form>'}
-              {'' if not p[5] else f'<form method="post" action="/mark_unsold"><input type="hidden" name="product_id" value="{p[0]}"><button class="bg-yellow-500 text-black px-3 py-1 rounded hover:bg-yellow-600 btn text-sm">❌ Не продан</button></form>'}
-              <form method="post" action="/delete_product"><input type="hidden" name="product_id" value="{p[0]}"><button class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 btn text-sm">🗑️ Удалить</button></form>
-            </div>
-          </td>
-        </tr>
-        """
-    for l in lots:
-        time_left = max(0, l[4] - int(time.time()))
-        status = '🟢 Активен' if l[6] else '⛔ Остановлен'
-        float_text = f"{l[8]:.4f}" if l[8] is not None and l[10] == 'weapon' else "N/A"
-        ban_text = 'Да' if l[9] else 'Нет'
-        type_text = 'Оружие' if l[10] == 'weapon' else 'Агент'
-        img_html = f'<img src="/static/images/{l[7]}" class="w-16 h-16 rounded-lg object-cover" alt="{l[1]}">' if l[7] else ""
-        html += f"""
-        <tr class="border-b border-gray-700">
-          <td class="p-3">L{l[0]}</td>
-          <td class="p-3">{img_html}</td>
-          <td class="p-3">{l[1]}</td>
-          <td class="p-3">{l[2]}</td>
-          <td class="p-3">{l[3]}₽</td>
-          <td class="p-3">{time_left//60} мин {time_left%60} сек</td>
-          <td class="p-3">{float_text}</td>
-          <td class="p-3">{ban_text}</td>
-          <td class="p-3">{type_text}</td>
-          <td class="p-3">{status}</td>
-          <td class="p-3">
-            <div class="flex flex-col gap-2">
-              {'' if not l[6] else f'<form method="post" action="/stop_lot"><input type="hidden" name="lot_id" value="{l[0]}"><button class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 btn text-sm">⛔ Остановить</button></form>'}
-              <form method="post" action="/delete_lot"><input type="hidden" name="lot_id" value="{l[0]}"><button class="bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 btn text-sm">🗑️ Удалить</button></form>
-            </div>
-          </td>
-        </tr>
+    if latest_item:
+        if item_type == 'product':
+            p = latest_item
+            status = '✅ Продан' if p[5] else '🟢 В продаже'
+            float_text = f"{p[7]:.4f}" if p[7] is not None and p[9] == 'weapon' else "N/A"
+            ban_text = 'Да' if p[8] else 'Нет'
+            type_text = 'Оружие' if p[9] == 'weapon' else 'Агент'
+            img_html = f'<img src="/static/images/{p[6]}" class="w-16 h-16 rounded-lg object-cover" alt="{p[1]}">' if p[6] else ""
+            html += f"""
+            <tr class="border-b border-gray-700">
+              <td class="p-3">P{p[0]}</td>
+              <td class="p-3">{img_html}</td>
+              <td class="p-3">{p[1]}</td>
+              <td class="p-3">{p[2]}</td>
+              <td class="p-3">{p[3]}₽</td>
+              <td class="p-3">{p[4]}</td>
+              <td class="p-3">{float_text}</td>
+              <td class="p-3">{ban_text}</td>
+              <td class="p-3">{type_text}</td>
+              <td class="p-3">{status}</td>
+              <td class="p-3">
+                <div class="flex flex-col gap-2">
+                  {'' if p[5] else f'<form method="post" action="/mark_sold"><input type="hidden" name="product_id" value="{p[0]}"><button class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 btn text-sm">✅ Продан</button></form>'}
+                  {'' if not p[5] else f'<form method="post" action="/mark_unsold"><input type="hidden" name="product_id" value="{p[0]}"><button class="bg-yellow-500 text-black px-3 py-1 rounded hover:bg-yellow-600 btn text-sm">❌ Не продан</button></form>'}
+                  <form method="post" action="/delete_product"><input type="hidden" name="product_id" value="{p[0]}"><button class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 btn text-sm">🗑️ Удалить</button></form>
+                </div>
+              </td>
+            </tr>
+            """
+        else:
+            l = latest_item
+            time_left = max(0, l[4] - int(time.time()))
+            status = '🟢 Активен' if l[6] else '⛔ Остановлен'
+            float_text = f"{l[8]:.4f}" if l[8] is not None and l[10] == 'weapon' else "N/A"
+            ban_text = 'Да' if l[9] else 'Нет'
+            type_text = 'Оружие' if l[10] == 'weapon' else 'Агент'
+            img_html = f'<img src="/static/images/{l[7]}" class="w-16 h-16 rounded-lg object-cover" alt="{l[1]}">' if l[7] else ""
+            html += f"""
+            <tr class="border-b border-gray-700">
+              <td class="p-3">L{l[0]}</td>
+              <td class="p-3">{img_html}</td>
+              <td class="p-3">{l[1]}</td>
+              <td class="p-3">{l[2]}</td>
+              <td class="p-3">{l[3]}₽</td>
+              <td class="p-3">{time_left//60} мин {time_left%60} сек</td>
+              <td class="p-3">{float_text}</td>
+              <td class="p-3">{ban_text}</td>
+              <td class="p-3">{type_text}</td>
+              <td class="p-3">{status}</td>
+              <td class="p-3">
+                <div class="flex flex-col gap-2">
+                  {'' if not l[6] else f'<form method="post" action="/stop_lot"><input type="hidden" name="lot_id" value="{l[0]}"><button class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 btn text-sm">⛔ Остановить</button></form>'}
+                  <form method="post" action="/delete_lot"><input type="hidden" name="lot_id" value="{l[0]}"><button class="bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 btn text-sm">🗑️ Удалить</button></form>
+                </div>
+              </td>
+            </tr>
+            """
+    else:
+        html += """
+            <tr>
+              <td colspan="11" class="p-3 text-center text-gray-400">Нет товаров или лотов.</td>
+            </tr>
         """
     html += """
           </tbody>
