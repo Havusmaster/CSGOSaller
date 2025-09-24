@@ -2,9 +2,11 @@ import os
 import sqlite3
 import logging
 import time
+import re
 from flask import Flask, render_template_string, request, redirect, url_for, session
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 import asyncio
 import multiprocessing
 import werkzeug
@@ -13,7 +15,7 @@ from threading import Thread
 # Конфиг
 BOT_TOKEN = "7504123410:AAEznGqRafbyrBx2e34HzsxztWV201HRMxE"  # Замените на реальный токен
 ADMIN_IDS = [1939282952, 5266027747]  # Список ID админов
-ADMIN_USERNAME = "UzSaler"  # Замените на имя админа без @ или ссылку на группу (например, +group_id)
+ADMIN_USERNAME = "UzSaler"  # Замените на имя админа без @ или ссылку на группу
 BOT_USERNAME = "UzSaler"  # Замените на имя бота без @
 
 # Логирование
@@ -85,6 +87,13 @@ def init_db():
         amount INTEGER,
         time INTEGER
     )""")
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS pending_requests (
+        user_id INTEGER,
+        product_id INTEGER,
+        timestamp INTEGER,
+        PRIMARY KEY (user_id, product_id)
+    )""")
     conn.commit()
     conn.close()
 init_db()
@@ -122,14 +131,14 @@ function searchItems(tableId) {
     const id = row.cells[0].textContent.toLowerCase();
     const name = row.cells[2].textContent.toLowerCase();
     const desc = row.cells[3].textContent.toLowerCase();
-    const rowType = row.cells[8].textContent; // Type column
+    const rowType = row.cells[8].textContent;
     const matchesSearch = id.includes(input) || name.includes(input) || desc.includes(input);
     const matchesType = type === 'all' || (type === 'weapon' && rowType === 'Оружие') || (type === 'agent' && rowType === 'Агент');
     row.style.display = matchesSearch && matchesType ? '' : 'none';
   });
 }
 function filterItemsByType(tableId) {
-  searchItems(tableId); // Reuse search function to combine filters
+  searchItems(tableId);
 }
 </script>
 """
@@ -171,7 +180,6 @@ async def start_cmd(message: types.Message):
             c = conn.cursor()
             c.execute('SELECT name, description, price, quantity, float_value, trade_ban, type FROM products WHERE id=? AND sold=0 AND quantity>0', (product_id,))
             prod = c.fetchone()
-            conn.close()
             if prod:
                 float_text = f"Float: {prod[4]:.4f}" if prod[4] is not None and prod[6] == 'weapon' else "Float: N/A"
                 ban_text = "Trade Ban: Да" if prod[5] else "Trade Ban: Нет"
@@ -183,12 +191,11 @@ async def start_cmd(message: types.Message):
                         f"🔢 {float_text}\n"
                         f"🚫 {ban_text}\n"
                         f"🎮 {type_text}\n\n"
-                        f"Напишите администратору для покупки!")
+                        f"Пожалуйста, отправьте вашу трейд-ссылку для покупки!")
                 admin_url = f"https://t.me/{ADMIN_USERNAME}" if not ADMIN_USERNAME.startswith('+') else f"https://t.me/{ADMIN_USERNAME}"
                 await message.answer(text, reply_markup=types.ReplyKeyboardMarkup(
                     resize_keyboard=True,
                     keyboard=[
-                        [types.KeyboardButton(text="📩 Написать админу", url=admin_url)],
                         [types.KeyboardButton(text="🛒 Вернуться в магазин", web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/shop"))]
                     ]
                 ))
@@ -200,21 +207,78 @@ async def start_cmd(message: types.Message):
                               f"📦 Количество: {prod[3]}\n"
                               f"🔢 {float_text}\n"
                               f"🚫 {ban_text}\n"
-                              f"🎮 {type_text}")
+                              f"🎮 {type_text}\n"
+                              f"Ожидается трейд-ссылка...")
                 for admin_id in ADMIN_IDS:
                     try:
                         await bot.send_message(admin_id, admin_text)
                         logging.info(f"Уведомление отправлено админу ID{admin_id} о продукте {product_id}")
                     except Exception as e:
                         logging.error(f"Ошибка отправки админу ID{admin_id}: {e}")
+                # Сохраняем запрос в pending_requests
+                c.execute('INSERT OR REPLACE INTO pending_requests (user_id, product_id, timestamp) VALUES (?, ?, ?)',
+                          (user_id, product_id, int(time.time())))
+                conn.commit()
                 logging.info(f"Пользователь {username} (ID{user_id}) запросил продукт {product_id}: {prod[0]}")
             else:
                 await message.answer("Товар не найден или недоступен.", reply_markup=main_kb(user_id))
+            conn.close()
         except Exception as e:
+            if 'conn' in locals():
+                conn.close()
             logging.error(f"Ошибка обработки /start product_{product_id}: {str(e)}")
             await message.answer("Произошла ошибка. Попробуйте позже.", reply_markup=main_kb(user_id))
     else:
         await message.answer("Добро пожаловать!", reply_markup=main_kb(user_id))
+
+@dp.message()
+async def handle_trade_link(message: types.Message):
+    user_id = message.from_user.id
+    username = message.from_user.username or f"ID{user_id}"
+    text = message.text.strip()
+    # Проверяем, есть ли ожидающий запрос
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('SELECT product_id FROM pending_requests WHERE user_id=? AND timestamp>?', (user_id, int(time.time()) - 300))
+    request = c.fetchone()
+    if request:
+        product_id = request[0]
+        # Проверяем, является ли текст трейд-ссылкой
+        if re.match(r'^https://steamcommunity\.com/tradeoffer/.*', text):
+            c.execute('SELECT name, description, price, quantity, float_value, trade_ban, type FROM products WHERE id=?', (product_id,))
+            prod = c.fetchone()
+            if prod:
+                float_text = f"Float: {prod[4]:.4f}" if prod[4] is not None and prod[6] == 'weapon' else "Float: N/A"
+                ban_text = "Trade Ban: Да" if prod[5] else "Trade Ban: Нет"
+                type_text = "Тип: Оружие" if prod[6] == 'weapon' else "Тип: Агент"
+                user_link = f"@{username}" if message.from_user.username else f"https://t.me/+{user_id}"
+                admin_text = (f"🔔 Пользователь {user_link} отправил трейд-ссылку для товара!\n"
+                              f"📦 Товар: {prod[0]}\n"
+                              f"📜 Описание: {prod[1]}\n"
+                              f"💰 Цена: {prod[2]}₽\n"
+                              f"📦 Количество: {prod[3]}\n"
+                              f"🔢 {float_text}\n"
+                              f"🚫 {ban_text}\n"
+                              f"🎮 {type_text}\n"
+                              f"🔗 Трейд-ссылка: {text}")
+                for admin_id in ADMIN_IDS:
+                    try:
+                        await bot.send_message(admin_id, admin_text)
+                        logging.info(f"Трейд-ссылка отправлена админу ID{admin_id} для продукта {product_id}")
+                    except Exception as e:
+                        logging.error(f"Ошибка отправки трейд-ссылки админу ID{admin_id}: {e}")
+                await message.answer("✅ Ваша трейд-ссылка отправлена администратору! Ожидайте ответа.", reply_markup=main_kb(user_id))
+                c.execute('DELETE FROM pending_requests WHERE user_id=? AND product_id=?', (user_id, product_id))
+                conn.commit()
+            else:
+                await message.answer("Товар не найден. Попробуйте снова.", reply_markup=main_kb(user_id))
+                c.execute('DELETE FROM pending_requests WHERE user_id=? AND product_id=?', (user_id, product_id))
+                conn.commit()
+        else:
+            await message.answer("❌ Пожалуйста, отправьте действительную трейд-ссылку (например, https://steamcommunity.com/tradeoffer/...).", reply_markup=main_kb(user_id))
+        conn.close()
+    else:
+        conn.close()
 
 # Уведомления админам
 def notify_admins_auction(lot, price, winner):
@@ -814,12 +878,13 @@ def handle_error(e):
     logging.error(traceback.format_exc())
     return TAILWIND + f'<div class="container mx-auto pt-10 pb-10 px-4">{error_text}<a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>', 500
 
-# Фоновая задача: завершение аукционов
+# Фоновая задача: завершение аукционов и очистка старых запросов
 def auction_watcher():
     while True:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         now = int(time.time())
+        # Завершение аукционов
         c.execute('SELECT id, name, current_price, end_time, active FROM lots WHERE active=1')
         for lot in c.fetchall():
             if now >= lot[3]:
@@ -837,6 +902,9 @@ def auction_watcher():
                         loop.close()
                     except Exception as e:
                         logging.error(f"Ошибка уведомления победителя: {e}")
+        # Очистка старых запросов (старше 5 минут)
+        c.execute('DELETE FROM pending_requests WHERE timestamp<?', (now - 300,))
+        conn.commit()
         conn.close()
         time.sleep(5)
 
