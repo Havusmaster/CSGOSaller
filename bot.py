@@ -281,15 +281,25 @@ async def handle_trade_link(message: types.Message):
         conn.close()
 
 # Уведомления админам
-def notify_admins_auction(lot, price, winner):
-    text = f"\n🏆 Аукцион завершён!\n📦 Лот: {lot}\n💰 Цена: {price}\n👤 Победитель: {winner}"
+def notify_admins_auction(lot_id, lot_name, price, winner_id, float_value, trade_ban, lot_type):
+    float_text = f"🔢 Float: {float_value:.4f}" if float_value is not None and lot_type == 'weapon' else "🔢 Float: N/A"
+    ban_text = "🚫 Trade Ban: Да" if trade_ban else "🚫 Trade Ban: Нет"
+    type_text = "🎮 Тип: Оружие" if lot_type == 'weapon' else "🎮 Тип: Агент"
+    winner_text = f"👤 Победитель: ID{winner_id}" if winner_id else "👤 Победитель: Нет ставок"
+    text = (f"🏆 Аукцион завершён!\n"
+            f"📦 Лот: {lot_name} (ID: {lot_id})\n"
+            f"💰 Финальная цена: {price}₽\n"
+            f"{winner_text}\n"
+            f"{float_text}\n"
+            f"{ban_text}\n"
+            f"{type_text}")
     for admin_id in ADMIN_IDS:
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             loop.run_until_complete(bot.send_message(admin_id, text))
             loop.close()
-            logging.info(f"Уведомление об аукционе отправлено админу ID{admin_id}: {lot}")
+            logging.info(f"Уведомление об аукционе отправлено админу ID{admin_id}: {lot_name} (ID: {lot_id})")
         except Exception as e:
             logging.error(f"Ошибка отправки админу ID{admin_id}: {e}")
 
@@ -928,7 +938,7 @@ def auction_watcher():
         c = conn.cursor()
         now = int(time.time())
         # Завершение аукционов
-        c.execute('SELECT id, name, current_price, end_time, active FROM lots WHERE active=1 AND end_time IS NOT NULL')
+        c.execute('SELECT id, name, current_price, end_time, active, float_value, trade_ban, type FROM lots WHERE active=1 AND end_time IS NOT NULL')
         for lot in c.fetchall():
             if now >= lot[3]:
                 c.execute('SELECT user_id FROM bids WHERE lot_id=? ORDER BY amount DESC LIMIT 1', (lot[0],))
@@ -936,7 +946,7 @@ def auction_watcher():
                 winner_id = winner[0] if winner else None
                 c.execute('UPDATE lots SET active=0, winner_id=? WHERE id=?', (winner_id, lot[0]))
                 conn.commit()
-                notify_admins_auction(lot[1], lot[2], winner_id or 'Нет победителя')
+                notify_admins_auction(lot[0], lot[1], lot[2], winner_id, lot[5], lot[6], lot[7])
                 if winner_id:
                     try:
                         loop = asyncio.new_event_loop()
