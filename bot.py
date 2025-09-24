@@ -13,7 +13,7 @@ from threading import Thread
 # Конфиг
 BOT_TOKEN = "7504123410:AAEznGqRafbyrBx2e34HzsxztWV201HRMxE"  # Замените на реальный токен
 ADMIN_IDS = [1939282952, 5266027747]  # Список ID админов
-ADMIN_USERNAME = "UzSaler" # Замените на имя админа без @ или ссылку на группу (например, +group_id)
+ADMIN_USERNAME = "UzSaler"  # Замените на имя админа без @ или ссылку на группу (например, +group_id)
 BOT_USERNAME = "UzSaler"  # Замените на имя бота без @
 
 # Логирование
@@ -114,10 +114,10 @@ function toggleFloatField(selectId, floatId) {
   const floatField = document.getElementById(floatId);
   floatField.style.display = select.value === 'weapon' ? 'block' : 'none';
 }
-function searchProducts() {
+function searchItems(tableId) {
   const input = document.getElementById('searchInput').value.toLowerCase();
   const type = document.getElementById('typeFilter').value;
-  const rows = document.querySelectorAll('#productTable tbody tr');
+  const rows = document.querySelectorAll(`#${tableId} tbody tr`);
   rows.forEach(row => {
     const id = row.cells[0].textContent.toLowerCase();
     const name = row.cells[2].textContent.toLowerCase();
@@ -128,8 +128,8 @@ function searchProducts() {
     row.style.display = matchesSearch && matchesType ? '' : 'none';
   });
 }
-function filterProductsByType() {
-  searchProducts(); // Reuse search function to combine filters
+function filterItemsByType(tableId) {
+  searchItems(tableId); // Reuse search function to combine filters
 }
 </script>
 """
@@ -460,6 +460,102 @@ def bid_custom():
     logging.info(f"Ставка: Лот {lot_id}, {amount}, {user_id}")
     return redirect('/auction')
 
+@app.route('/admin/all_products')
+def admin_all_products():
+    if not is_admin():
+        return redirect('/login')
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products')
+    products = c.fetchall()
+    c.execute('SELECT id, name, description, current_price, end_time, step, active, image, float_value, trade_ban, type FROM lots')
+    lots = c.fetchall()
+    conn.close()
+    html = TAILWIND + """
+    <div class="container mx-auto pt-10 pb-10 px-4">
+      <h2 class="text-3xl font-bold text-purple-500 mb-6">📋 Все товары</h2>
+      <div class="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <input id="searchInput" type="text" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Поиск по ID, названию или описанию" onkeyup="searchItems('allItemsTable')">
+        <select id="typeFilter" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" onchange="filterItemsByType('allItemsTable')">
+          <option value="all">Все</option>
+          <option value="weapon">Оружия</option>
+          <option value="agent">Агенты</option>
+        </select>
+      </div>
+      <div class="overflow-x-auto">
+        <table id="allItemsTable" class="w-full bg-gray-800 text-gray-300 rounded-lg">
+          <thead><tr class="bg-gray-900"><th class="p-3">ID</th><th class="p-3">Фото</th><th class="p-3">Название</th><th class="p-3">Описание</th><th class="p-3">Цена</th><th class="p-3">Кол-во/Время</th><th class="p-3">Float</th><th class="p-3">Trade Ban</th><th class="p-3">Тип</th><th class="p-3">Статус</th><th class="p-3">Действия</th></tr></thead>
+          <tbody>
+    """
+    for p in products:
+        status = '✅ Продан' if p[5] else '🟢 В продаже'
+        float_text = f"{p[7]:.4f}" if p[7] is not None and p[9] == 'weapon' else "N/A"
+        ban_text = 'Да' if p[8] else 'Нет'
+        type_text = 'Оружие' if p[9] == 'weapon' else 'Агент'
+        img_html = f'<img src="/static/images/{p[6]}" class="w-16 h-16 rounded-lg object-cover" alt="{p[1]}">' if p[6] else ""
+        html += f"""
+        <tr class="border-b border-gray-700">
+          <td class="p-3">P{p[0]}</td>
+          <td class="p-3">{img_html}</td>
+          <td class="p-3">{p[1]}</td>
+          <td class="p-3">{p[2]}</td>
+          <td class="p-3">{p[3]}₽</td>
+          <td class="p-3">{p[4]}</td>
+          <td class="p-3">{float_text}</td>
+          <td class="p-3">{ban_text}</td>
+          <td class="p-3">{type_text}</td>
+          <td class="p-3">{status}</td>
+          <td class="p-3">
+            <div class="flex flex-col gap-2">
+              {'' if p[5] else f'<form method="post" action="/mark_sold"><input type="hidden" name="product_id" value="{p[0]}"><button class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 btn text-sm">✅ Продан</button></form>'}
+              {'' if not p[5] else f'<form method="post" action="/mark_unsold"><input type="hidden" name="product_id" value="{p[0]}"><button class="bg-yellow-500 text-black px-3 py-1 rounded hover:bg-yellow-600 btn text-sm">❌ Не продан</button></form>'}
+              <form method="post" action="/delete_product"><input type="hidden" name="product_id" value="{p[0]}"><button class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 btn text-sm">🗑️ Удалить</button></form>
+            </div>
+          </td>
+        </tr>
+        """
+    for l in lots:
+        time_left = max(0, l[4] - int(time.time()))
+        status = '🟢 Активен' if l[6] else '⛔ Остановлен'
+        float_text = f"{l[8]:.4f}" if l[8] is not None and l[10] == 'weapon' else "N/A"
+        ban_text = 'Да' if l[9] else 'Нет'
+        type_text = 'Оружие' if l[10] == 'weapon' else 'Агент'
+        img_html = f'<img src="/static/images/{l[7]}" class="w-16 h-16 rounded-lg object-cover" alt="{l[1]}">' if l[7] else ""
+        html += f"""
+        <tr class="border-b border-gray-700">
+          <td class="p-3">L{l[0]}</td>
+          <td class="p-3">{img_html}</td>
+          <td class="p-3">{l[1]}</td>
+          <td class="p-3">{l[2]}</td>
+          <td class="p-3">{l[3]}₽</td>
+          <td class="p-3">{time_left//60} мин {time_left%60} сек</td>
+          <td class="p-3">{float_text}</td>
+          <td class="p-3">{ban_text}</td>
+          <td class="p-3">{type_text}</td>
+          <td class="p-3">{status}</td>
+          <td class="p-3">
+            <div class="flex flex-col gap-2">
+              {'' if not l[6] else f'<form method="post" action="/stop_lot"><input type="hidden" name="lot_id" value="{l[0]}"><button class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 btn text-sm">⛔ Остановить</button></form>'}
+              <form method="post" action="/delete_lot"><input type="hidden" name="lot_id" value="{l[0]}"><button class="bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 btn text-sm">🗑️ Удалить</button></form>
+            </div>
+          </td>
+        </tr>
+        """
+    html += """
+          </tbody>
+        </table>
+      </div>
+      <hr class="border-gray-700 my-6">
+      <a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад</a>
+      <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
+        <a href="/admin/products" class="text-gray-300 hover:text-orange-500">📦 Товары</a>
+        <a href="/admin/all_products" class="text-gray-300 hover:text-orange-500">📋 Все товары</a>
+        <a href="/admin/lots" class="text-gray-300 hover:text-orange-500">🏆 Лоты</a>
+      </div>
+    </div>
+    """
+    return html
+
 @app.route('/admin/products')
 def admin_products():
     if not is_admin():
@@ -473,8 +569,8 @@ def admin_products():
     <div class="container mx-auto pt-10 pb-10 px-4">
       <h2 class="text-3xl font-bold text-gray-300 mb-6">📦 Товары</h2>
       <div class="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <input id="searchInput" type="text" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Поиск по ID, названию или описанию" onkeyup="searchProducts()">
-        <select id="typeFilter" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" onchange="filterProductsByType()">
+        <input id="searchInput" type="text" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Поиск по ID, названию или описанию" onkeyup="searchItems('productTable')">
+        <select id="typeFilter" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" onchange="filterItemsByType('productTable')">
           <option value="all">Все</option>
           <option value="weapon">Оружия</option>
           <option value="agent">Агенты</option>
@@ -557,6 +653,7 @@ def admin_products():
       <a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад</a>
       <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
         <a href="/admin/products" class="text-gray-300 hover:text-orange-500">📦 Товары</a>
+        <a href="/admin/all_products" class="text-gray-300 hover:text-orange-500">📋 Все товары</a>
         <a href="/admin/lots" class="text-gray-300 hover:text-orange-500">🏆 Лоты</a>
       </div>
     </div>
@@ -654,6 +751,7 @@ def admin_lots():
       <a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад</a>
       <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
         <a href="/admin/products" class="text-gray-300 hover:text-orange-500">📦 Товары</a>
+        <a href="/admin/all_products" class="text-gray-300 hover:text-orange-500">📋 Все товары</a>
         <a href="/admin/lots" class="text-gray-300 hover:text-orange-500">🏆 Лоты</a>
       </div>
     </div>
@@ -719,7 +817,7 @@ def mark_sold():
     c.execute('UPDATE products SET sold=1 WHERE id=?', (pid,))
     conn.commit()
     conn.close()
-    return redirect('/admin/products')
+    return redirect(request.referrer or '/admin/products')
 
 @app.route('/mark_unsold', methods=['POST'])
 def mark_unsold():
@@ -730,7 +828,7 @@ def mark_unsold():
     c.execute('UPDATE products SET sold=0 WHERE id=?', (pid,))
     conn.commit()
     conn.close()
-    return redirect('/admin/products')
+    return redirect(request.referrer or '/admin/products')
 
 @app.route('/delete_product', methods=['POST'])
 def delete_product():
@@ -741,7 +839,7 @@ def delete_product():
     c.execute('DELETE FROM products WHERE id=?', (pid,))
     conn.commit()
     conn.close()
-    return redirect('/admin/products')
+    return redirect(request.referrer or '/admin/products')
 
 @app.route('/stop_lot', methods=['POST'])
 def stop_lot():
@@ -752,7 +850,7 @@ def stop_lot():
     c.execute('UPDATE lots SET active=0 WHERE id=?', (lot_id,))
     conn.commit()
     conn.close()
-    return redirect('/admin/lots')
+    return redirect(request.referrer or '/admin/lots')
 
 @app.route('/delete_lot', methods=['POST'])
 def delete_lot():
@@ -763,7 +861,7 @@ def delete_lot():
     c.execute('DELETE FROM lots WHERE id=?', (lot_id,))
     conn.commit()
     conn.close()
-    return redirect('/admin/lots')
+    return redirect(request.referrer or '/admin/lots')
 
 @app.errorhandler(Exception)
 def handle_error(e):
