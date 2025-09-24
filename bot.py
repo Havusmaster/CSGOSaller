@@ -13,7 +13,7 @@ from threading import Thread
 # Конфиг
 BOT_TOKEN = "7504123410:AAEznGqRafbyrBx2e34HzsxztWV201HRMxE"  # Замените на реальный токен
 ADMIN_IDS = [1939282952, 5266027747]  # Список ID админов
-ADMIN_USERNAME = "UzSaler"  # Замените на имя админа без @ или ссылку на группу (например, +group_id)
+ADMIN_USERNAME = "UzSaler" # Замените на имя админа без @ или ссылку на группу (например, +group_id)
 BOT_USERNAME = "UzSaler"  # Замените на имя бота без @
 
 # Логирование
@@ -107,8 +107,6 @@ body { background: linear-gradient(135deg, #1a1a1a, #2a2a2a); min-height: 100vh;
 .btn:hover { transform: scale(1.05); }
 input, select, textarea { transition: border-color 0.3s ease; }
 input:focus, select:focus, textarea:focus { border-color: #f97316 !important; outline: none; }
-#adminModal { display: none; }
-#adminModal.show { display: flex; }
 </style>
 <script>
 function toggleFloatField(selectId, floatId) {
@@ -118,23 +116,20 @@ function toggleFloatField(selectId, floatId) {
 }
 function searchProducts() {
   const input = document.getElementById('searchInput').value.toLowerCase();
+  const type = document.getElementById('typeFilter').value;
   const rows = document.querySelectorAll('#productTable tbody tr');
   rows.forEach(row => {
     const id = row.cells[0].textContent.toLowerCase();
     const name = row.cells[2].textContent.toLowerCase();
     const desc = row.cells[3].textContent.toLowerCase();
-    row.style.display = (id.includes(input) || name.includes(input) || desc.includes(input)) ? '' : 'none';
+    const rowType = row.cells[8].textContent; // Type column
+    const matchesSearch = id.includes(input) || name.includes(input) || desc.includes(input);
+    const matchesType = type === 'all' || (type === 'weapon' && rowType === 'Оружие') || (type === 'agent' && rowType === 'Агент');
+    row.style.display = matchesSearch && matchesType ? '' : 'none';
   });
 }
-function showAdminModal(productId) {
-  const modal = document.getElementById('adminModal');
-  const modalContent = document.getElementById('modalProductId');
-  modalContent.textContent = productId;
-  modal.classList.add('show');
-}
-function closeAdminModal() {
-  const modal = document.getElementById('adminModal');
-  modal.classList.remove('show');
+function filterProductsByType() {
+  searchProducts(); // Reuse search function to combine filters
 }
 </script>
 """
@@ -305,6 +300,7 @@ def shop():
           {img_html}
           <h5 class="text-xl font-bold text-green-500">{p[1]}</h5>
           <p class="text-gray-300">{p[2]}</p>
+          <p class="mt-2 text-sm text-gray-400">ID: {p[0]}</p>
           <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">💰 {p[3]}₽</span> <span class="bg-blue-500 text-white px-2 py-1 rounded">📦 Осталось: {p[4]}</span></p>
           <p class="mt-2 text-sm text-gray-400">{float_text} {'' if not float_text else ' | '}{ban_text} | {type_text}</p>
           <a href="https://t.me/{BOT_USERNAME}?start=product_{p[0]}" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn mt-4 block text-center">📩 Написать админу</a>
@@ -473,12 +469,16 @@ def admin_products():
     c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products')
     products = c.fetchall()
     conn.close()
-    admin_url = f"https://t.me/{ADMIN_USERNAME}" if not ADMIN_USERNAME.startswith('+') else f"https://t.me/{ADMIN_USERNAME}"
-    html = TAILWIND + f"""
+    html = TAILWIND + """
     <div class="container mx-auto pt-10 pb-10 px-4">
       <h2 class="text-3xl font-bold text-gray-300 mb-6">📦 Товары</h2>
-      <div class="mb-6">
+      <div class="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <input id="searchInput" type="text" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Поиск по ID, названию или описанию" onkeyup="searchProducts()">
+        <select id="typeFilter" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" onchange="filterProductsByType()">
+          <option value="all">Все</option>
+          <option value="weapon">Оружия</option>
+          <option value="agent">Агенты</option>
+        </select>
       </div>
       <div class="overflow-x-auto">
         <table id="productTable" class="w-full bg-gray-800 text-gray-300 rounded-lg">
@@ -505,7 +505,6 @@ def admin_products():
           <td class="p-3">{status}</td>
           <td class="p-3">
             <div class="flex flex-col gap-2">
-              <button onclick="showAdminModal({p[0]})" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 btn text-sm">📩 Написать админу</button>
               {'' if p[5] else f'<form method="post" action="/mark_sold"><input type="hidden" name="product_id" value="{p[0]}"><button class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 btn text-sm">✅ Продан</button></form>'}
               {'' if not p[5] else f'<form method="post" action="/mark_unsold"><input type="hidden" name="product_id" value="{p[0]}"><button class="bg-yellow-500 text-black px-3 py-1 rounded hover:bg-yellow-600 btn text-sm">❌ Не продан</button></form>'}
               <form method="post" action="/delete_product"><input type="hidden" name="product_id" value="{p[0]}"><button class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 btn text-sm">🗑️ Удалить</button></form>
@@ -513,19 +512,9 @@ def admin_products():
           </td>
         </tr>
         """
-    html += f"""
+    html += """
           </tbody>
         </table>
-      </div>
-      <div id="adminModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-        <div class="bg-gray-800 rounded-lg p-6 max-w-sm w-full">
-          <h3 class="text-xl font-bold text-gray-300 mb-4">Отправьте это админу</h3>
-          <p class="text-gray-300 mb-4">Product ID: <span id="modalProductId"></span></p>
-          <div class="flex gap-4">
-            <a href="{admin_url}?text=Product ID: " id="adminModalLink" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 btn">📩 Написать</a>
-            <button onclick="closeAdminModal()" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 btn">Закрыть</button>
-          </div>
-        </div>
       </div>
       <hr class="border-gray-700 my-6">
       <h2 class="text-3xl font-bold text-green-500 mb-6">➕ Добавить товар</h2>
@@ -594,7 +583,7 @@ def admin_lots():
     for l in lots:
         time_left = max(0, l[4] - int(time.time()))
         status = '🟢 Активен' if l[6] else '⛔ Остановлен'
-        afloat_text = f"{l[8]:.4f}" if l[8] is not None and l[10] == 'weapon' else "N/A"
+        float_text = f"{l[8]:.4f}" if l[8] is not None and l[10] == 'weapon' else "N/A"
         ban_text = 'Да' if l[9] else 'Нет'
         type_text = 'Оружие' if l[10] == 'weapon' else 'Агент'
         img_html = f'<img src="/static/images/{l[7]}" class="w-16 h-16 rounded-lg object-cover" alt="{l[1]}">' if l[7] else ""
