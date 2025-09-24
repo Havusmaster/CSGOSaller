@@ -1,37 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-README
-=======
-
-Требования:
-- Python 3.10+
-- pip install aiogram flask gunicorn werkzeug
-
-Запуск:
-- python bot.py
-
-WebApp:
-- Откройте Telegram-бота, нажмите кнопку "Открыть магазин/аукцион".
-
-Конфиг:
-- BOT_TOKEN = "ВАШ_ТОКЕН"
-- ADMIN_IDS = [id1, id2]
-- ADMIN_USERNAME = "ВАШ_АДМИН_ИМЯ" (без @, например, AdminUser для @AdminUser, или +group_id для группы)
-- BOT_USERNAME = "ВАШ_БОТ_ИМЯ" (без @, например, CSGOSallerBot)
-
-"""
-
-# =====================
-# Конфиг
-# =====================
-BOT_TOKEN = "7504123410:AAEznGqRafbyrBx2e34HzsxztWV201HRMxE"  # Замените на реальный токен
-ADMIN_IDS = [1939282952, 5266027747]  # Список ID админов
-ADMIN_USERNAME = "UzSaler"  # Замените на имя админа без @ или ссылку на группу (например, +group_id)
-BOT_USERNAME = "UzSaler"  # Замените на имя бота без @
-
-# =====================
-# Импорт библиотек
-# =====================
 import os
 import sqlite3
 import logging
@@ -44,14 +10,16 @@ import multiprocessing
 import werkzeug
 from threading import Thread
 
-# =====================
+# Конфиг
+BOT_TOKEN = "7504123410:AAEznGqRafbyrBx2e34HzsxztWV201HRMxE"  # Замените на реальный токен
+ADMIN_IDS = [1939282952, 5266027747]  # Список ID админов
+ADMIN_USERNAME = "UzSaler"  # Замените на имя админа без @ или ссылку на группу (например, +group_id)
+BOT_USERNAME = "UzSaler"  # Замените на имя бота без @
+
 # Логирование
-# =====================
 logging.basicConfig(filename="bot.log", level=logging.INFO, format="%(asctime)s %(message)s")
 
-# =====================
 # Инициализация базы данных
-# =====================
 DB_PATH = "auction_shop.db"
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -121,9 +89,7 @@ def init_db():
     conn.close()
 init_db()
 
-# =====================
 # Flask WebApp
-# =====================
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 app.config['UPLOAD_FOLDER'] = 'static/images/'
@@ -141,6 +107,8 @@ body { background: linear-gradient(135deg, #1a1a1a, #2a2a2a); min-height: 100vh;
 .btn:hover { transform: scale(1.05); }
 input, select, textarea { transition: border-color 0.3s ease; }
 input:focus, select:focus, textarea:focus { border-color: #f97316 !important; outline: none; }
+#adminModal { display: none; }
+#adminModal.show { display: flex; }
 </style>
 <script>
 function toggleFloatField(selectId, floatId) {
@@ -158,12 +126,20 @@ function searchProducts() {
     row.style.display = (id.includes(input) || name.includes(input) || desc.includes(input)) ? '' : 'none';
   });
 }
+function showAdminModal(productId) {
+  const modal = document.getElementById('adminModal');
+  const modalContent = document.getElementById('modalProductId');
+  modalContent.textContent = productId;
+  modal.classList.add('show');
+}
+function closeAdminModal() {
+  const modal = document.getElementById('adminModal');
+  modal.classList.remove('show');
+}
 </script>
 """
 
-# =====================
 # Telegram Bot
-# =====================
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
@@ -221,7 +197,6 @@ async def start_cmd(message: types.Message):
                         [types.KeyboardButton(text="🛒 Вернуться в магазин", web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/shop"))]
                     ]
                 ))
-                # Уведомляем админов
                 user_link = f"@{username}" if message.from_user.username else f"https://t.me/+{user_id}"
                 admin_text = (f"🔔 Пользователь {user_link} заинтересован в товаре!\n"
                               f"📦 Товар: {prod[0]}\n"
@@ -246,9 +221,7 @@ async def start_cmd(message: types.Message):
     else:
         await message.answer("Добро пожаловать!", reply_markup=main_kb(user_id))
 
-# =====================
 # Уведомления админам
-# =====================
 def notify_admins_auction(lot, price, winner):
     text = f"\n🏆 Аукцион завершён!\n📦 Лот: {lot}\n💰 Цена: {price}\n👤 Победитель: {winner}"
     for admin_id in ADMIN_IDS:
@@ -261,9 +234,7 @@ def notify_admins_auction(lot, price, winner):
         except Exception as e:
             logging.error(f"Ошибка отправки админу ID{admin_id}: {e}")
 
-# =====================
 # Flask маршруты
-# =====================
 def is_admin():
     user_id = session.get('user_id')
     logging.info(f"Checking is_admin for user_id: {user_id}, ADMIN_IDS: {ADMIN_IDS}")
@@ -392,7 +363,6 @@ def buy():
         return TAILWIND + f'<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Ошибка: {str(e)}</div><a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
 
 @app.route('/auction', methods=['GET'])
-@app.route('/auction/', methods=['GET'])
 def auction():
     logging.info("Маршрут /auction вызван")
     try:
@@ -503,7 +473,8 @@ def admin_products():
     c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products')
     products = c.fetchall()
     conn.close()
-    html = TAILWIND + """
+    admin_url = f"https://t.me/{ADMIN_USERNAME}" if not ADMIN_USERNAME.startswith('+') else f"https://t.me/{ADMIN_USERNAME}"
+    html = TAILWIND + f"""
     <div class="container mx-auto pt-10 pb-10 px-4">
       <h2 class="text-3xl font-bold text-gray-300 mb-6">📦 Товары</h2>
       <div class="mb-6">
@@ -534,6 +505,7 @@ def admin_products():
           <td class="p-3">{status}</td>
           <td class="p-3">
             <div class="flex flex-col gap-2">
+              <button onclick="showAdminModal({p[0]})" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 btn text-sm">📩 Написать админу</button>
               {'' if p[5] else f'<form method="post" action="/mark_sold"><input type="hidden" name="product_id" value="{p[0]}"><button class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 btn text-sm">✅ Продан</button></form>'}
               {'' if not p[5] else f'<form method="post" action="/mark_unsold"><input type="hidden" name="product_id" value="{p[0]}"><button class="bg-yellow-500 text-black px-3 py-1 rounded hover:bg-yellow-600 btn text-sm">❌ Не продан</button></form>'}
               <form method="post" action="/delete_product"><input type="hidden" name="product_id" value="{p[0]}"><button class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 btn text-sm">🗑️ Удалить</button></form>
@@ -541,9 +513,19 @@ def admin_products():
           </td>
         </tr>
         """
-    html += """
+    html += f"""
           </tbody>
         </table>
+      </div>
+      <div id="adminModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div class="bg-gray-800 rounded-lg p-6 max-w-sm w-full">
+          <h3 class="text-xl font-bold text-gray-300 mb-4">Отправьте это админу</h3>
+          <p class="text-gray-300 mb-4">Product ID: <span id="modalProductId"></span></p>
+          <div class="flex gap-4">
+            <a href="{admin_url}?text=Product ID: " id="adminModalLink" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 btn">📩 Написать</a>
+            <button onclick="closeAdminModal()" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 btn">Закрыть</button>
+          </div>
+        </div>
       </div>
       <hr class="border-gray-700 my-6">
       <h2 class="text-3xl font-bold text-green-500 mb-6">➕ Добавить товар</h2>
@@ -612,7 +594,7 @@ def admin_lots():
     for l in lots:
         time_left = max(0, l[4] - int(time.time()))
         status = '🟢 Активен' if l[6] else '⛔ Остановлен'
-        float_text = f"{l[8]:.4f}" if l[8] is not None and l[10] == 'weapon' else "N/A"
+        afloat_text = f"{l[8]:.4f}" if l[8] is not None and l[10] == 'weapon' else "N/A"
         ban_text = 'Да' if l[9] else 'Нет'
         type_text = 'Оружие' if l[10] == 'weapon' else 'Агент'
         img_html = f'<img src="/static/images/{l[7]}" class="w-16 h-16 rounded-lg object-cover" alt="{l[1]}">' if l[7] else ""
@@ -801,9 +783,7 @@ def handle_error(e):
     logging.error(traceback.format_exc())
     return TAILWIND + f'<div class="container mx-auto pt-10 pb-10 px-4">{error_text}<a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>', 500
 
-# =====================
 # Фоновая задача: завершение аукционов
-# =====================
 def auction_watcher():
     while True:
         conn = sqlite3.connect(DB_PATH)
@@ -831,9 +811,7 @@ def auction_watcher():
 
 Thread(target=auction_watcher, daemon=True).start()
 
-# =====================
 # Запуск Flask и Telegram-бота
-# =====================
 def run_flask():
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port, debug=False)
