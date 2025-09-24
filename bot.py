@@ -117,15 +117,6 @@ def init_db():
         amount INTEGER,
         time INTEGER
     )""")
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS purchases (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        product_id INTEGER,
-        name TEXT,
-        price INTEGER,
-        buyer TEXT,
-        time INTEGER
-    )""")
     conn.commit()
     conn.close()
 init_db()
@@ -156,6 +147,16 @@ function toggleFloatField(selectId, floatId) {
   const select = document.getElementById(selectId);
   const floatField = document.getElementById(floatId);
   floatField.style.display = select.value === 'weapon' ? 'block' : 'none';
+}
+function searchProducts() {
+  const input = document.getElementById('searchInput').value.toLowerCase();
+  const rows = document.querySelectorAll('#productTable tbody tr');
+  rows.forEach(row => {
+    const id = row.cells[0].textContent.toLowerCase();
+    const name = row.cells[2].textContent.toLowerCase();
+    const desc = row.cells[3].textContent.toLowerCase();
+    row.style.display = (id.includes(input) || name.includes(input) || desc.includes(input)) ? '' : 'none';
+  });
 }
 </script>
 """
@@ -248,21 +249,6 @@ async def start_cmd(message: types.Message):
 # =====================
 # Уведомления админам
 # =====================
-def notify_admins_purchase(product, price, buyer, description, quantity, float_value, trade_ban, item_type):
-    float_text = f"Float: {float_value:.4f}" if float_value is not None and item_type == 'weapon' else "Float: N/A"
-    ban_text = "Trade Ban: Да" if trade_ban else "Trade Ban: Нет"
-    type_text = "Тип: Оружие" if item_type == 'weapon' else "Тип: Агент"
-    text = f"\n🛒 Новая заявка на покупку!\n📦 Товар: {product}\n📜 Описание: {description}\n💰 Цена: {price}₽\n📦 Количество: {quantity}\n🔢 {float_text}\n🚫 {ban_text}\n🎮 {type_text}\n👤 Покупатель: {buyer}"
-    for admin_id in ADMIN_IDS:
-        try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(bot.send_message(admin_id, text))
-            loop.close()
-            logging.info(f"Уведомление о покупке отправлено админу ID{admin_id}: {product}")
-        except Exception as e:
-            logging.error(f"Ошибка отправки админу ID{admin_id}: {e}")
-
 def notify_admins_auction(lot, price, winner):
     text = f"\n🏆 Аукцион завершён!\n📦 Лот: {lot}\n💰 Цена: {price}\n👤 Победитель: {winner}"
     for admin_id in ADMIN_IDS:
@@ -394,11 +380,8 @@ def buy():
         c.execute('UPDATE products SET quantity=quantity-1 WHERE id=?', (pid,))
         if prod[2] == 1:
             c.execute('UPDATE products SET sold=1 WHERE id=?', (pid,))
-        c.execute('INSERT INTO purchases (product_id, name, price, buyer, time) VALUES (?, ?, ?, ?, ?)',
-                  (pid, prod[0], prod[1], buyer, int(time.time())))
         conn.commit()
         conn.close()
-        notify_admins_purchase(prod[0], prod[1], buyer, prod[3], prod[2], prod[4], prod[5], prod[6])
         logging.info(f"Покупка успешна: {prod[0]}, {prod[1]}, {buyer}, {prod[3]}, {prod[2]}, Float: {prod[4]}, Trade Ban: {prod[5]}, Type: {prod[6]}")
         return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-green-600 text-white p-4 rounded-lg">✅ Заявка на покупку отправлена администратору!</div><a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
     
@@ -523,9 +506,12 @@ def admin_products():
     html = TAILWIND + """
     <div class="container mx-auto pt-10 pb-10 px-4">
       <h2 class="text-3xl font-bold text-gray-300 mb-6">📦 Товары</h2>
+      <div class="mb-6">
+        <input id="searchInput" type="text" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Поиск по ID, названию или описанию" onkeyup="searchProducts()">
+      </div>
       <div class="overflow-x-auto">
-        <table class="w-full bg-gray-800 text-gray-300 rounded-lg">
-          <thead><tr class="bg-gray-900"><th class="p-3">Фото</th><th class="p-3">Название</th><th class="p-3">Описание</th><th class="p-3">Цена</th><th class="p-3">Кол-во</th><th class="p-3">Float</th><th class="p-3">Trade Ban</th><th class="p-3">Тип</th><th class="p-3">Статус</th><th class="p-3">Действия</th></tr></thead>
+        <table id="productTable" class="w-full bg-gray-800 text-gray-300 rounded-lg">
+          <thead><tr class="bg-gray-900"><th class="p-3">ID</th><th class="p-3">Фото</th><th class="p-3">Название</th><th class="p-3">Описание</th><th class="p-3">Цена</th><th class="p-3">Кол-во</th><th class="p-3">Float</th><th class="p-3">Trade Ban</th><th class="p-3">Тип</th><th class="p-3">Статус</th><th class="p-3">Действия</th></tr></thead>
           <tbody>
     """
     for p in products:
@@ -536,6 +522,7 @@ def admin_products():
         img_html = f'<img src="/static/images/{p[6]}" class="w-16 h-16 rounded-lg object-cover" alt="{p[1]}">' if p[6] else ""
         html += f"""
         <tr class="border-b border-gray-700">
+          <td class="p-3">{p[0]}</td>
           <td class="p-3">{img_html}</td>
           <td class="p-3">{p[1]}</td>
           <td class="p-3">{p[2]}</td>
@@ -600,7 +587,6 @@ def admin_products():
       <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
         <a href="/admin/products" class="text-gray-300 hover:text-orange-500">📦 Товары</a>
         <a href="/admin/lots" class="text-gray-300 hover:text-orange-500">🏆 Лоты</a>
-        <a href="/admin/purchases" class="text-gray-300 hover:text-orange-500">🛒 Покупки</a>
       </div>
     </div>
     """
@@ -698,42 +684,6 @@ def admin_lots():
       <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
         <a href="/admin/products" class="text-gray-300 hover:text-orange-500">📦 Товары</a>
         <a href="/admin/lots" class="text-gray-300 hover:text-orange-500">🏆 Лоты</a>
-        <a href="/admin/purchases" class="text-gray-300 hover:text-orange-500">🛒 Покупки</a>
-      </div>
-    </div>
-    """
-    return html
-
-@app.route('/admin/purchases')
-def admin_purchases():
-    if not is_admin():
-        return redirect('/login')
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('SELECT id, product_id, name, price, buyer, time FROM purchases ORDER BY time DESC LIMIT 20')
-    purchases = c.fetchall()
-    conn.close()
-    html = TAILWIND + """
-    <div class="container mx-auto pt-10 pb-10 px-4">
-      <h2 class="text-3xl font-bold text-yellow-500 mb-6">🛒 Последние покупки</h2>
-      <div class="overflow-x-auto">
-        <table class="w-full bg-gray-800 text-gray-300 rounded-lg">
-          <thead><tr class="bg-gray-900"><th class="p-3">ID</th><th class="p-3">Товар</th><th class="p-3">Цена</th><th class="p-3">Покупатель</th><th class="p-3">Время</th></tr></thead>
-          <tbody>
-    """
-    for pur in purchases:
-        dt = time.strftime('%d.%m.%Y %H:%M', time.localtime(pur[5]))
-        html += f'<tr class="border-b border-gray-700"><td class="p-3">{pur[0]}</td><td class="p-3">{pur[2]}</td><td class="p-3">{pur[3]}₽</td><td class="p-3">{pur[4]}</td><td class="p-3">{dt}</td></tr>'
-    html += """
-          </tbody>
-        </table>
-      </div>
-      <hr class="border-gray-700 my-6">
-      <a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад</a>
-      <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
-        <a href="/admin/products" class="text-gray-300 hover:text-orange-500">📦 Товары</a>
-        <a href="/admin/lots" class="text-gray-300 hover:text-orange-500">🏆 Лоты</a>
-        <a href="/admin/purchases" class="text-gray-300 hover:text-orange-500">🛒 Покупки</a>
       </div>
     </div>
     """
