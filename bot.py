@@ -439,7 +439,7 @@ def auction():
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
         """
         for l in lots:
-            time_left = max(0, l[4] - int(time.time()))
+            time_left = "Без ограничения" if l[4] is None else f"{max(0, l[4] - int(time.time()))//60} мин {max(0, l[4] - int(time.time()))%60} сек"
             img_html = f'<img src="/static/images/{l[7]}" class="mb-4 w-full rounded-lg object-cover" style="max-height:180px;" alt="{l[1]}">' if l[7] else ""
             float_text = f"Float: {l[8]:.4f}" if l[8] is not None and l[10] == 'weapon' else ""
             ban_text = "Trade Ban: Да" if l[9] else "Trade Ban: Нет"
@@ -450,7 +450,7 @@ def auction():
               <h5 class="text-xl font-bold text-blue-500">{l[1]}</h5>
               <p class="text-gray-300">{l[2]}</p>
               <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">💰 Текущая ставка: {l[3]}₽</span></p>
-              <p class="mt-2"><span class="bg-gray-600 text-white px-2 py-1 rounded">⏳ До конца: {time_left//60} мин {time_left%60} сек</span></p>
+              <p class="mt-2"><span class="bg-gray-600 text-white px-2 py-1 rounded">⏳ До конца: {time_left}</span></p>
               <p class="mt-2 text-sm text-gray-400">{float_text} {'' if not float_text else ' | '}{ban_text} | {type_text}</p>
               <form method="post" action="/bid" class="mt-4">
                 <input type="hidden" name="lot_id" value="{l[0]}">
@@ -723,7 +723,7 @@ def admin_lots():
           <tbody>
     """
     if lot:
-        time_left = max(0, lot[4] - int(time.time()))
+        time_left = "Без ограничения" if lot[4] is None else f"{max(0, lot[4] - int(time.time()))//60} мин {max(0, lot[4] - int(time.time()))%60} сек"
         status = '🟢 Активен' if lot[6] else '⛔ Остановлен'
         float_text = f"{lot[8]:.4f}" if lot[8] is not None and lot[10] == 'weapon' else "N/A"
         ban_text = 'Да' if lot[9] else 'Нет'
@@ -735,7 +735,7 @@ def admin_lots():
           <td class="p-3">{lot[1]}</td>
           <td class="p-3">{lot[2]}</td>
           <td class="p-3">{lot[3]}₽</td>
-          <td class="p-3">{time_left//60} мин {time_left%60} сек</td>
+          <td class="p-3">{time_left}</td>
           <td class="p-3">{float_text}</td>
           <td class="p-3">{ban_text}</td>
           <td class="p-3">{type_text}</td>
@@ -774,7 +774,7 @@ def admin_lots():
           <input name="step" type="number" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Шаг ставки (₽)" required>
         </div>
         <div>
-          <input name="minutes" type="number" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Время аукциона (минуты)" required>
+          <input name="minutes" type="number" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" placeholder="Время аукциона (минуты, оставьте пустым для бесконечного)">
         </div>
         <div>
           <select name="type" id="lot_type" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600" onchange="toggleFloatField('lot_type', 'lot_float')" required>
@@ -840,7 +840,7 @@ def add_lot():
     desc = request.form['description']
     start_price = int(request.form['start_price'])
     step = int(request.form['step'])
-    minutes = int(request.form['minutes'])
+    minutes = request.form.get('minutes')
     item_type = request.form['type']
     float_value = float(request.form.get('float_value', None)) if request.form.get('float_value') and item_type == 'weapon' else None
     trade_ban = 1 if request.form.get('trade_ban') else 0
@@ -849,14 +849,14 @@ def add_lot():
     if image_file and image_file.filename:
         image_name = werkzeug.utils.secure_filename(image_file.filename)
         image_file.save(os.path.join(app.config['UPLOAD_FOLDER'], image_name))
-    end_time = int(time.time()) + minutes * 60
+    end_time = int(time.time()) + int(minutes) * 60 if minutes and minutes.strip() else None
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('INSERT INTO lots (name, description, start_price, step, end_time, current_price, image, float_value, trade_ban, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
               (name, desc, start_price, step, end_time, start_price, image_name, float_value, trade_ban, item_type))
     conn.commit()
     conn.close()
-    logging.info(f"Создан лот: {name}, {start_price}, {step}, {minutes} мин, Type: {item_type}, Float: {float_value}, Trade Ban: {trade_ban}, Image: {image_name}")
+    logging.info(f"Создан лот: {name}, {start_price}, {step}, {'Без ограничения' if end_time is None else f'{minutes} мин'}, Type: {item_type}, Float: {float_value}, Trade Ban: {trade_ban}, Image: {image_name}")
     return redirect('/admin/lots')
 
 @app.route('/mark_sold', methods=['POST'])
@@ -928,7 +928,7 @@ def auction_watcher():
         c = conn.cursor()
         now = int(time.time())
         # Завершение аукционов
-        c.execute('SELECT id, name, current_price, end_time, active FROM lots WHERE active=1')
+        c.execute('SELECT id, name, current_price, end_time, active FROM lots WHERE active=1 AND end_time IS NOT NULL')
         for lot in c.fetchall():
             if now >= lot[3]:
                 c.execute('SELECT user_id FROM bids WHERE lot_id=? ORDER BY amount DESC LIMIT 1', (lot[0],))
