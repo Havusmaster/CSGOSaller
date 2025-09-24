@@ -6,20 +6,20 @@ import re
 from flask import Flask, render_template_string, request, redirect, url_for, session
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 import asyncio
 import multiprocessing
 import werkzeug
 from threading import Thread
 
-# Конфиг
-BOT_TOKEN = "7504123410:AAEznGqRafbyrBx2e34HzsxztWV201HRMxE"  # Замените на реальный токен
-ADMIN_IDS = [1939282952, 5266027747]  # Список ID админов
-ADMIN_USERNAME = "UzSaler"  # Замените на имя админа без @ или ссылку на группу
-BOT_USERNAME = "UzSaler"  # Замените на имя бота без @
+# Конфигурация
+BOT_TOKEN = "7504123410:AAEznGqRafbyrBx2e34HzsxztWV201HRMxE"  # Замените на ваш токен
+ADMIN_IDS = [1939282952, 5266027747]  # Замените на ваши ID админов
+ADMIN_USERNAME = "UzSaler"  # Замените на @ваш_админ или ссылку на группу
+BOT_USERNAME = "UzSaler"  # Замените на @ваш_бот
 
 # Логирование
-logging.basicConfig(filename="bot.log", level=logging.INFO, format="%(asctime)s %(message)s")
+logging.basicConfig(filename="bot.log", level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s")
 
 # Инициализация базы данных
 DB_PATH = "auction_shop.db"
@@ -102,7 +102,7 @@ init_db()
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 app.config['UPLOAD_FOLDER'] = 'static/images/'
-app.config['DEBUG'] = True
+app.config['DEBUG'] = False  # Отключаем debug для продакшена
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Tailwind CSS и JavaScript
@@ -148,34 +148,34 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 def main_kb(user_id=None):
+    kb = ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
+        [
+            KeyboardButton(
+                text="🛒 Магазин",
+                web_app=WebAppInfo(url=f"https://csgosaller-1.onrender.com/")
+            )
+        ]
+    ])
     if user_id in ADMIN_IDS:
-        return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
-            [
-                types.KeyboardButton(
-                    text="🛒 Магазин",
-                    web_app=types.WebAppInfo(url=f"https://csgosaller-1.onrender.com/?user_id={user_id}")
-                )
-            ]
+        kb.keyboard.append([
+            KeyboardButton(
+                text="🔑 Админ-панель",
+                web_app=WebAppInfo(url=f"https://csgosaller-1.onrender.com/admin/products?user_id={user_id}")
+            )
         ])
-    else:
-        return types.ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[
-            [
-                types.KeyboardButton(
-                    text="🛒 Магазин",
-                    web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/")
-                )
-            ]
-        ])
+    logging.debug(f"Создана клавиатура для user_id: {user_id}")
+    return kb
 
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message):
     user_id = message.from_user.id
     username = message.from_user.username or f"ID{user_id}"
+    logging.debug(f"Обработка команды /start для user_id: {user_id}, username: {username}, args: {message.text}")
     args = message.text.split()
     if len(args) > 1 and args[1].startswith("product_"):
         try:
             product_id = int(args[1].replace("product_", ""))
-            logging.info(f"Обработка /start product_{product_id} для user_id: {user_id}, username: {username}")
+            logging.info(f"Запрос /start product_{product_id} от user_id: {user_id}")
             conn = sqlite3.connect(DB_PATH)
             c = conn.cursor()
             c.execute('SELECT name, description, price, quantity, float_value, trade_ban, type FROM products WHERE id=? AND sold=0 AND quantity>0', (product_id,))
@@ -193,11 +193,10 @@ async def start_cmd(message: types.Message):
                         f"🎮 {type_text}\n"
                         f"🔗 Ссылка на товар: https://csgosaller-1.onrender.com/product/{product_id}\n\n"
                         f"Пожалуйста, отправьте вашу трейд-ссылку для покупки!")
-                admin_url = f"https://t.me/{ADMIN_USERNAME}" if not ADMIN_USERNAME.startswith('+') else f"https://t.me/{ADMIN_USERNAME}"
-                await message.answer(text, reply_markup=types.ReplyKeyboardMarkup(
+                await message.answer(text, reply_markup=ReplyKeyboardMarkup(
                     resize_keyboard=True,
                     keyboard=[
-                        [types.KeyboardButton(text="🛒 Вернуться в магазин", web_app=types.WebAppInfo(url="https://csgosaller-1.onrender.com/shop"))]
+                        [KeyboardButton(text="🛒 Вернуться в магазин", web_app=WebAppInfo(url="https://csgosaller-1.onrender.com/shop"))]
                     ]
                 ))
                 user_link = f"@{username}" if message.from_user.username else f"https://t.me/+{user_id}"
@@ -220,9 +219,10 @@ async def start_cmd(message: types.Message):
                 c.execute('INSERT OR REPLACE INTO pending_requests (user_id, product_id, timestamp) VALUES (?, ?, ?)',
                           (user_id, product_id, int(time.time())))
                 conn.commit()
-                logging.info(f"Пользователь {username} (ID{user_id}) запросил продукт {product_id}: {prod[0]}")
+                logging.info(f"Запрос на продукт {product_id} сохранен для user_id: {user_id}")
             else:
                 await message.answer("Товар не найден или недоступен.", reply_markup=main_kb(user_id))
+                logging.warning(f"Товар {product_id} не найден для user_id: {user_id}")
             conn.close()
         except Exception as e:
             if 'conn' in locals():
@@ -230,19 +230,22 @@ async def start_cmd(message: types.Message):
             logging.error(f"Ошибка обработки /start product_{product_id}: {str(e)}")
             await message.answer("Произошла ошибка. Попробуйте позже.", reply_markup=main_kb(user_id))
     else:
-        await message.answer("Добро пожаловать!", reply_markup=main_kb(user_id))
+        await message.answer("Добро пожаловать в CSGO Saller! Выберите действие:", reply_markup=main_kb(user_id))
+        logging.debug(f"Показана главная клавиатура для user_id: {user_id}")
 
 @dp.message()
 async def handle_trade_link(message: types.Message):
     user_id = message.from_user.id
     username = message.from_user.username or f"ID{user_id}"
     text = message.text.strip()
+    logging.debug(f"Получено сообщение от user_id: {user_id}, текст: {text}")
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('SELECT product_id FROM pending_requests WHERE user_id=? AND timestamp>?', (user_id, int(time.time()) - 300))
     request = c.fetchone()
     if request:
         product_id = request[0]
+        logging.info(f"Обработка трейд-ссылки для product_id: {product_id}, user_id: {user_id}")
         if re.match(r'^https://steamcommunity\.com/tradeoffer/.*', text):
             c.execute('SELECT name, description, price, quantity, float_value, trade_ban, type FROM products WHERE id=?', (product_id,))
             prod = c.fetchone()
@@ -270,18 +273,23 @@ async def handle_trade_link(message: types.Message):
                 await message.answer("✅ Ваша трейд-ссылка отправлена администратору! Ожидайте ответа.", reply_markup=main_kb(user_id))
                 c.execute('DELETE FROM pending_requests WHERE user_id=? AND product_id=?', (user_id, product_id))
                 conn.commit()
+                logging.info(f"Запрос на продукт {product_id} удален для user_id: {user_id}")
             else:
                 await message.answer("Товар не найден. Попробуйте снова.", reply_markup=main_kb(user_id))
                 c.execute('DELETE FROM pending_requests WHERE user_id=? AND product_id=?', (user_id, product_id))
                 conn.commit()
+                logging.warning(f"Товар {product_id} не найден при обработке трейд-ссылки для user_id: {user_id}")
         else:
             await message.answer("❌ Пожалуйста, отправьте действительную трейд-ссылку (например, https://steamcommunity.com/tradeoffer/...).", reply_markup=main_kb(user_id))
+            logging.warning(f"Недействительная трейд-ссылка от user_id: {user_id}")
         conn.close()
     else:
+        await message.answer("Пожалуйста, выберите товар в магазине для отправки трейд-ссылки.", reply_markup=main_kb(user_id))
+        logging.debug(f"Нет активных запросов для user_id: {user_id}")
         conn.close()
 
 def notify_admins_auction(lot, price, winner):
-    text = f"\n🏆 Аукцион завершён!\n📦 Лот: {lot}\n💰 Цена: {price}\n👤 Победитель: {winner}"
+    text = f"🏆 Аукцион завершён!\n📦 Лот: {lot}\n💰 Цена: {price}\n👤 Победитель: {winner}"
     for admin_id in ADMIN_IDS:
         try:
             loop = asyncio.new_event_loop()
@@ -294,33 +302,33 @@ def notify_admins_auction(lot, price, winner):
 
 def is_admin():
     user_id = session.get('user_id')
-    logging.info(f"Checking is_admin for user_id: {user_id}, ADMIN_IDS: {ADMIN_IDS}")
+    logging.debug(f"Проверка is_admin для user_id: {user_id}, ADMIN_IDS: {ADMIN_IDS}")
     return user_id in ADMIN_IDS
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     user_id = session.get('user_id', None)
-    logging.info(f"Login route: user_id={user_id}")
+    logging.debug(f"Маршрут /login, user_id: {user_id}")
     if user_id in ADMIN_IDS:
-        logging.info("User is admin, redirecting to /admin/products")
+        logging.info("Пользователь является админом, редирект на /admin/products")
         return redirect(url_for('admin_products'))
-    logging.info("User not admin, redirecting to /")
+    logging.info("Пользователь не админ, редирект на /")
     return redirect(url_for('index'))
 
 @app.route('/')
 def index():
     user_id = session.get('user_id', None)
-    logging.info(f"Index route: session user_id={user_id}, query user_id={request.args.get('user_id', None)}")
+    logging.debug(f"Маршрут /index, session user_id: {user_id}, query user_id: {request.args.get('user_id', None)}")
     if not user_id:
         user_id = request.args.get('user_id', None)
         if user_id:
             try:
                 user_id = int(user_id)
                 session['user_id'] = user_id
-                logging.info(f"Set session user_id: {user_id}")
+                logging.info(f"Установлен session user_id: {user_id}")
             except:
                 user_id = None
-                logging.error("Failed to parse user_id from query")
+                logging.error("Не удалось распарсить user_id из запроса")
     html = TAILWIND + """
     <div class="container mx-auto pt-10 pb-10 px-4 text-center">
       <h2 class="text-3xl font-bold text-orange-500 mb-6">Добро пожаловать!</h2>
@@ -342,6 +350,7 @@ def index():
 
 @app.route('/shop')
 def shop():
+    logging.debug("Маршрут /shop вызван")
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products WHERE sold=0 AND quantity>0')
@@ -382,12 +391,14 @@ def shop():
 
 @app.route('/product/<int:product_id>')
 def product(product_id):
+    logging.debug(f"Маршрут /product/{product_id} вызван")
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products WHERE id=? AND sold=0 AND quantity>0', (product_id,))
     product = c.fetchone()
     conn.close()
     if not product:
+        logging.warning(f"Товар {product_id} не найден")
         return TAILWIND + """
         <div class="container mx-auto pt-10 pb-10 px-4">
           <div class="bg-red-600 text-white p-4 rounded-lg">Товар не найден или недоступен.</div>
@@ -423,30 +434,26 @@ def product(product_id):
 
 @app.route('/buy', methods=['POST'])
 def buy():
-    logging.info("Маршрут /buy вызван")
+    logging.debug("Маршрут /buy вызван")
     user_id = session.get('user_id', None)
     buyer = "Гость" if not user_id else f"ID{user_id}"
-    logging.info(f"Покупатель: {buyer}, user_id: {user_id}")
-    
+    logging.info(f"Покупка: user_id={user_id}, buyer={buyer}")
     try:
         product_id = request.form.get('product_id')
-        logging.info(f"Получен product_id: {product_id}")
+        logging.debug(f"Получен product_id: {product_id}")
         if not product_id:
             logging.error("product_id отсутствует в форме")
             return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Ошибка: ID товара не указан.</div><a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
-        
         pid = int(product_id)
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute('SELECT name, price, quantity, description, float_value, trade_ban, type FROM products WHERE id=? AND sold=0', (pid,))
         prod = c.fetchone()
-        logging.info(f"Результат запроса к products: {prod}")
-        
+        logging.debug(f"Результат запроса к products: {prod}")
         if not prod or prod[2] < 1:
             conn.close()
             logging.error(f"Товар недоступен: id={pid}, prod={prod}")
             return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Товар недоступен.</div><a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
-        
         c.execute('UPDATE products SET quantity=quantity-1 WHERE id=?', (pid,))
         if prod[2] == 1:
             c.execute('UPDATE products SET sold=1 WHERE id=?', (pid,))
@@ -454,7 +461,6 @@ def buy():
         conn.close()
         logging.info(f"Покупка успешна: {prod[0]}, {prod[1]}, {buyer}, {prod[3]}, {prod[2]}, Float: {prod[4]}, Trade Ban: {prod[5]}, Type: {prod[6]}")
         return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-green-600 text-white p-4 rounded-lg">✅ Заявка на покупку отправлена администратору!</div><a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
-    
     except Exception as e:
         if 'conn' in locals():
             conn.close()
@@ -463,14 +469,12 @@ def buy():
 
 @app.route('/auction', methods=['GET'])
 def auction():
-    logging.info("Маршрут /auction вызван")
+    logging.debug("Маршрут /auction вызван")
     try:
         conn = sqlite3.connect(DB_PATH)
-        logging.info(f"Подключение к базе данных: {DB_PATH}")
         c = conn.cursor()
         c.execute('SELECT id, name, description, current_price, end_time, step, active, image, float_value, trade_ban, type FROM lots WHERE active=1')
         lots = c.fetchall()
-        logging.info(f"Получено лотов: {len(lots)}")
         conn.close()
         html = TAILWIND + """
         <div class="container mx-auto pt-10 pb-10 px-4">
@@ -539,7 +543,7 @@ def bid():
     c.execute('INSERT INTO bids (lot_id, user_id, amount, time) VALUES (?, ?, ?, ?)', (lot_id, user_id, new_price, int(time.time())))
     conn.commit()
     conn.close()
-    logging.info(f"Ставка: Лот {lot_id}, {new_price}, {user_id}")
+    logging.info(f"Ставка: Лот {lot_id}, {new_price}, user_id: {user_id}")
     return redirect('/auction')
 
 @app.route('/bid_custom', methods=['POST'])
@@ -560,7 +564,7 @@ def bid_custom():
     c.execute('INSERT INTO bids (lot_id, user_id, amount, time) VALUES (?, ?, ?, ?)', (lot_id, user_id, amount, int(time.time())))
     conn.commit()
     conn.close()
-    logging.info(f"Ставка: Лот {lot_id}, {amount}, {user_id}")
+    logging.info(f"Ставка: Лот {lot_id}, {amount}, user_id: {user_id}")
     return redirect('/auction')
 
 @app.route('/admin/all_products')
@@ -864,6 +868,7 @@ def mark_sold():
     c.execute('UPDATE products SET sold=1 WHERE id=?', (pid,))
     conn.commit()
     conn.close()
+    logging.info(f"Товар ID {pid} отмечен как проданный")
     return redirect(request.referrer or '/admin/products')
 
 @app.route('/mark_unsold', methods=['POST'])
@@ -875,6 +880,7 @@ def mark_unsold():
     c.execute('UPDATE products SET sold=0 WHERE id=?', (pid,))
     conn.commit()
     conn.close()
+    logging.info(f"Товар ID {pid} отмечен как не проданный")
     return redirect(request.referrer or '/admin/products')
 
 @app.route('/delete_product', methods=['POST'])
@@ -886,6 +892,7 @@ def delete_product():
     c.execute('DELETE FROM products WHERE id=?', (pid,))
     conn.commit()
     conn.close()
+    logging.info(f"Товар ID {pid} удален")
     return redirect(request.referrer or '/admin/products')
 
 @app.route('/stop_lot', methods=['POST'])
@@ -897,6 +904,7 @@ def stop_lot():
     c.execute('UPDATE lots SET active=0 WHERE id=?', (lot_id,))
     conn.commit()
     conn.close()
+    logging.info(f"Лот ID {lot_id} остановлен")
     return redirect(request.referrer or '/admin/lots')
 
 @app.route('/delete_lot', methods=['POST'])
@@ -908,6 +916,7 @@ def delete_lot():
     c.execute('DELETE FROM lots WHERE id=?', (lot_id,))
     conn.commit()
     conn.close()
+    logging.info(f"Лот ID {lot_id} удален")
     return redirect(request.referrer or '/admin/lots')
 
 @app.errorhandler(Exception)
