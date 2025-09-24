@@ -190,7 +190,8 @@ async def start_cmd(message: types.Message):
                         f"📦 Количество: {prod[3]}\n"
                         f"🔢 {float_text}\n"
                         f"🚫 {ban_text}\n"
-                        f"🎮 {type_text}\n\n"
+                        f"🎮 {type_text}\n"
+                        f"🔗 Ссылка на товар: https://csgosaller-1.onrender.com/product/{product_id}\n\n"
                         f"Пожалуйста, отправьте вашу трейд-ссылку для покупки!")
                 admin_url = f"https://t.me/{ADMIN_USERNAME}" if not ADMIN_USERNAME.startswith('+') else f"https://t.me/{ADMIN_USERNAME}"
                 await message.answer(text, reply_markup=types.ReplyKeyboardMarkup(
@@ -208,6 +209,7 @@ async def start_cmd(message: types.Message):
                               f"🔢 {float_text}\n"
                               f"🚫 {ban_text}\n"
                               f"🎮 {type_text}\n"
+                              f"🔗 Ссылка на товар: https://csgosaller-1.onrender.com/product/{product_id}\n"
                               f"Ожидается трейд-ссылка...")
                 for admin_id in ADMIN_IDS:
                     try:
@@ -215,7 +217,6 @@ async def start_cmd(message: types.Message):
                         logging.info(f"Уведомление отправлено админу ID{admin_id} о продукте {product_id}")
                     except Exception as e:
                         logging.error(f"Ошибка отправки админу ID{admin_id}: {e}")
-                # Сохраняем запрос в pending_requests
                 c.execute('INSERT OR REPLACE INTO pending_requests (user_id, product_id, timestamp) VALUES (?, ?, ?)',
                           (user_id, product_id, int(time.time())))
                 conn.commit()
@@ -236,14 +237,12 @@ async def handle_trade_link(message: types.Message):
     user_id = message.from_user.id
     username = message.from_user.username or f"ID{user_id}"
     text = message.text.strip()
-    # Проверяем, есть ли ожидающий запрос
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('SELECT product_id FROM pending_requests WHERE user_id=? AND timestamp>?', (user_id, int(time.time()) - 300))
     request = c.fetchone()
     if request:
         product_id = request[0]
-        # Проверяем, является ли текст трейд-ссылкой
         if re.match(r'^https://steamcommunity\.com/tradeoffer/.*', text):
             c.execute('SELECT name, description, price, quantity, float_value, trade_ban, type FROM products WHERE id=?', (product_id,))
             prod = c.fetchone()
@@ -260,6 +259,7 @@ async def handle_trade_link(message: types.Message):
                               f"🔢 {float_text}\n"
                               f"🚫 {ban_text}\n"
                               f"🎮 {type_text}\n"
+                              f"🔗 Ссылка на товар: https://csgosaller-1.onrender.com/product/{product_id}\n"
                               f"🔗 Трейд-ссылка: {text}")
                 for admin_id in ADMIN_IDS:
                     try:
@@ -280,7 +280,6 @@ async def handle_trade_link(message: types.Message):
     else:
         conn.close()
 
-# Уведомления админам
 def notify_admins_auction(lot, price, winner):
     text = f"\n🏆 Аукцион завершён!\n📦 Лот: {lot}\n💰 Цена: {price}\n👤 Победитель: {winner}"
     for admin_id in ADMIN_IDS:
@@ -293,7 +292,6 @@ def notify_admins_auction(lot, price, winner):
         except Exception as e:
             logging.error(f"Ошибка отправки админу ID{admin_id}: {e}")
 
-# Flask маршруты
 def is_admin():
     user_id = session.get('user_id')
     logging.info(f"Checking is_admin for user_id: {user_id}, ADMIN_IDS: {ADMIN_IDS}")
@@ -376,6 +374,47 @@ def shop():
       <a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад</a>
       <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
         <a href="/" class="text-gray-300 hover:text-orange-500">🏠 Главная</a>
+        <a href="/auction" class="text-gray-300 hover:text-orange-500">🏆 Аукцион</a>
+      </div>
+    </div>
+    """
+    return html
+
+@app.route('/product/<int:product_id>')
+def product(product_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products WHERE id=? AND sold=0 AND quantity>0', (product_id,))
+    product = c.fetchone()
+    conn.close()
+    if not product:
+        return TAILWIND + """
+        <div class="container mx-auto pt-10 pb-10 px-4">
+          <div class="bg-red-600 text-white p-4 rounded-lg">Товар не найден или недоступен.</div>
+          <a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">⬅️ Назад в магазин</a>
+        </div>
+        """
+    img_html = f'<img src="/static/images/{product[6]}" class="mb-4 w-full rounded-lg object-cover" style="max-height:300px;" alt="{product[1]}">' if product[6] else ""
+    float_text = f"Float: {product[7]:.4f}" if product[7] is not None and product[9] == 'weapon' else "Float: N/A"
+    ban_text = "Trade Ban: Да" if product[8] else "Trade Ban: Нет"
+    type_text = "Тип: Оружие" if product[9] == 'weapon' else "Тип: Агент"
+    html = TAILWIND + f"""
+    <div class="container mx-auto pt-10 pb-10 px-4">
+      <h2 class="text-3xl font-bold text-green-500 mb-6">📦 Товар</h2>
+      <div class="bg-gray-800 rounded-lg p-4 card">
+        {img_html}
+        <h5 class="text-xl font-bold text-green-500">{product[1]}</h5>
+        <p class="text-gray-300">{product[2]}</p>
+        <p class="mt-2 text-sm text-gray-400">ID: {product[0]}</p>
+        <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">💰 {product[3]}₽</span> <span class="bg-blue-500 text-white px-2 py-1 rounded">📦 Осталось: {product[4]}</span></p>
+        <p class="mt-2 text-sm text-gray-400">{float_text} | {ban_text} | {type_text}</p>
+        <a href="https://t.me/{BOT_USERNAME}?start=product_{product[0]}" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn mt-4 block text-center">📩 Написать админу</a>
+      </div>
+      <hr class="border-gray-700 my-6">
+      <a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад в магазин</a>
+      <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
+        <a href="/" class="text-gray-300 hover:text-orange-500">🏠 Главная</a>
+        <a href="/shop" class="text-gray-300 hover:text-orange-500">🛒 Магазин</a>
         <a href="/auction" class="text-gray-300 hover:text-orange-500">🏆 Аукцион</a>
       </div>
     </div>
@@ -878,13 +917,11 @@ def handle_error(e):
     logging.error(traceback.format_exc())
     return TAILWIND + f'<div class="container mx-auto pt-10 pb-10 px-4">{error_text}<a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>', 500
 
-# Фоновая задача: завершение аукционов и очистка старых запросов
 def auction_watcher():
     while True:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         now = int(time.time())
-        # Завершение аукционов
         c.execute('SELECT id, name, current_price, end_time, active FROM lots WHERE active=1')
         for lot in c.fetchall():
             if now >= lot[3]:
@@ -902,7 +939,6 @@ def auction_watcher():
                         loop.close()
                     except Exception as e:
                         logging.error(f"Ошибка уведомления победителя: {e}")
-        # Очистка старых запросов (старше 5 минут)
         c.execute('DELETE FROM pending_requests WHERE timestamp<?', (now - 300,))
         conn.commit()
         conn.close()
@@ -910,7 +946,6 @@ def auction_watcher():
 
 Thread(target=auction_watcher, daemon=True).start()
 
-# Запуск Flask и Telegram-бота
 def run_flask():
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port, debug=False)
