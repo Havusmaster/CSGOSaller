@@ -116,6 +116,8 @@ body { background: linear-gradient(135deg, #1a1a1a, #2a2a2a); min-height: 100vh;
 .btn:hover { transform: scale(1.05); }
 input, select, textarea { transition: border-color 0.3s ease; }
 input:focus, select:focus, textarea:focus { border-color: #f97316 !important; outline: none; }
+#modal { display: none; }
+#modal.show { display: flex; }
 </style>
 <script>
 function toggleFloatField(selectId, floatId) {
@@ -140,8 +142,37 @@ function searchItems(tableId) {
 function filterItemsByType(tableId) {
   searchItems(tableId);
 }
+function openModal(product_id, name, description, price, quantity, float_value, trade_ban, type) {
+  const floatText = float_value && type === 'weapon' ? `Float: ${parseFloat(float_value).toFixed(4)}` : 'Float: N/A';
+  const banText = trade_ban === 1 ? 'Trade Ban: Да' : 'Trade Ban: Нет';
+  const typeText = type === 'weapon' ? 'Тип: Оружие' : 'Тип: Агент';
+  const modalContent = `
+    <div class="bg-gray-800 rounded-lg p-6 max-w-lg w-full">
+      <h3 class="text-2xl font-bold text-green-500 mb-4">${name}</h3>
+      <p class="text-gray-300 mb-2">${description}</p>
+      <p class="text-gray-300 mb-2">💰 Цена: ${price}₽</p>
+      <p class="text-gray-300 mb-2">📦 Количество: ${quantity}</p>
+      <p class="text-gray-300 mb-2">🔢 ${floatText}</p>
+      <p class="text-gray-300 mb-2">🚫 ${banText}</p>
+      <p class="text-gray-300 mb-4">🎮 ${typeText}</p>
+      <p class="text-gray-300 mb-4">📊 <a href="https://csgosaller-1.onrender.com/admin/product/${product_id}" class="text-blue-500 hover:underline">Посмотреть в админ-панели</a></p>
+      <a href="https://t.me/{BOT_USERNAME}?start=product_${product_id}" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn text-center block">📩 Написать админу</a>
+      <button onclick="closeModal()" class="bg-gray-600 text-white w-full py-2 rounded-lg hover:bg-gray-700 btn mt-2">Закрыть</button>
+    </div>
+  `;
+  document.getElementById('modalContent').innerHTML = modalContent;
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+}
+window.onclick = function(event) {
+  if (event.target.id === 'modal') {
+    closeModal();
+  }
+}
 </script>
-"""
+""".replace("{BOT_USERNAME}", BOT_USERNAME)
 
 # Telegram Bot
 bot = Bot(token=BOT_TOKEN)
@@ -216,7 +247,6 @@ async def start_cmd(message: types.Message):
                         logging.info(f"Уведомление отправлено админу ID{admin_id} о продукте {product_id}")
                     except Exception as e:
                         logging.error(f"Ошибка отправки админу ID{admin_id}: {e}")
-                # Сохраняем запрос в pending_requests
                 c.execute('INSERT OR REPLACE INTO pending_requests (user_id, product_id, timestamp) VALUES (?, ?, ?)',
                           (user_id, product_id, int(time.time())))
                 conn.commit()
@@ -237,14 +267,12 @@ async def handle_trade_link(message: types.Message):
     user_id = message.from_user.id
     username = message.from_user.username or f"ID{user_id}"
     text = message.text.strip()
-    # Проверяем, есть ли ожидающий запрос
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('SELECT product_id FROM pending_requests WHERE user_id=? AND timestamp>?', (user_id, int(time.time()) - 300))
     request = c.fetchone()
     if request:
         product_id = request[0]
-        # Проверяем, является ли текст трейд-ссылкой
         if re.match(r'^https://steamcommunity\.com/tradeoffer/.*', text):
             c.execute('SELECT name, description, price, quantity, float_value, trade_ban, type FROM products WHERE id=?', (product_id,))
             prod = c.fetchone()
@@ -282,7 +310,6 @@ async def handle_trade_link(message: types.Message):
     else:
         conn.close()
 
-# Уведомления админам
 def notify_admins_auction(lot_id, lot_name, price, winner_id, float_value, trade_ban, lot_type):
     float_text = f"🔢 Float: {float_value:.4f}" if float_value is not None and lot_type == 'weapon' else "🔢 Float: N/A"
     ban_text = "🚫 Trade Ban: Да" if trade_ban else "🚫 Trade Ban: Нет"
@@ -305,7 +332,6 @@ def notify_admins_auction(lot_id, lot_name, price, winner_id, float_value, trade
         except Exception as e:
             logging.error(f"Ошибка отправки админу ID{admin_id}: {e}")
 
-# Flask маршруты
 def is_admin():
     user_id = session.get('user_id')
     logging.info(f"Checking is_admin for user_id: {user_id}, ADMIN_IDS: {ADMIN_IDS}")
@@ -379,10 +405,13 @@ def shop():
           <p class="mt-2 text-sm text-gray-400">ID: {p[0]}</p>
           <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">💰 {p[3]}₽</span> <span class="bg-blue-500 text-white px-2 py-1 rounded">📦 Осталось: {p[4]}</span></p>
           <p class="mt-2 text-sm text-gray-400">{float_text} {'' if not float_text else ' | '}{ban_text} | {type_text}</p>
-          <a href="https://t.me/{BOT_USERNAME}?start=product_{p[0]}" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn mt-4 block text-center">📩 Написать админу</a>
+          <button onclick="openModal({p[0]}, '{p[1].replace("'", "\\'")}', '{p[2].replace("'", "\\'")}', {p[3]}, {p[4]}, {p[7] if p[7] is not None else 'null'}, {p[8]}, '{p[9]}')" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn mt-4">📩 Написать админу</button>
         </div>
         """
     html += """
+      </div>
+      <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div id="modalContent" class="max-w-lg w-full"></div>
       </div>
       <hr class="border-gray-700 my-6">
       <a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад</a>
@@ -980,13 +1009,11 @@ def handle_error(e):
     logging.error(traceback.format_exc())
     return TAILWIND + f'<div class="container mx-auto pt-10 pb-10 px-4">{error_text}<a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>', 500
 
-# Фоновая задача: завершение аукционов и очистка старых запросов
 def auction_watcher():
     while True:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         now = int(time.time())
-        # Завершение аукционов
         c.execute('SELECT id, name, current_price, end_time, active, float_value, trade_ban, type FROM lots WHERE active=1 AND end_time IS NOT NULL')
         for lot in c.fetchall():
             if now >= lot[3]:
@@ -1004,7 +1031,6 @@ def auction_watcher():
                         loop.close()
                     except Exception as e:
                         logging.error(f"Ошибка уведомления победителя: {e}")
-        # Очистка старых запросов (старше 5 минут)
         c.execute('DELETE FROM pending_requests WHERE timestamp<?', (now - 300,))
         conn.commit()
         conn.close()
@@ -1012,7 +1038,6 @@ def auction_watcher():
 
 Thread(target=auction_watcher, daemon=True).start()
 
-# Запуск Flask и Telegram-бота
 def run_flask():
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port, debug=False)
