@@ -201,13 +201,14 @@ async def start_cmd(message: types.Message):
                 ))
                 user_link = f"@{username}" if message.from_user.username else f"https://t.me/+{user_id}"
                 admin_text = (f"🔔 Пользователь {user_link} заинтересован в товаре!\n"
-                              f"📦 Товар: {prod[0]}\n"
+                              f"📦 Товар: {prod[0]} (ID: {product_id})\n"
                               f"📜 Описание: {prod[1]}\n"
                               f"💰 Цена: {prod[2]}₽\n"
                               f"📦 Количество: {prod[3]}\n"
                               f"🔢 {float_text}\n"
                               f"🚫 {ban_text}\n"
                               f"🎮 {type_text}\n"
+                              f"📊 Посмотреть в админ-панели: https://csgosaller-1.onrender.com/admin/product/{product_id}\n"
                               f"Ожидается трейд-ссылка...")
                 for admin_id in ADMIN_IDS:
                     try:
@@ -253,13 +254,14 @@ async def handle_trade_link(message: types.Message):
                 type_text = "Тип: Оружие" if prod[6] == 'weapon' else "Тип: Агент"
                 user_link = f"@{username}" if message.from_user.username else f"https://t.me/+{user_id}"
                 admin_text = (f"🔔 Пользователь {user_link} отправил трейд-ссылку для товара!\n"
-                              f"📦 Товар: {prod[0]}\n"
+                              f"📦 Товар: {prod[0]} (ID: {product_id})\n"
                               f"📜 Описание: {prod[1]}\n"
                               f"💰 Цена: {prod[2]}₽\n"
                               f"📦 Количество: {prod[3]}\n"
                               f"🔢 {float_text}\n"
                               f"🚫 {ban_text}\n"
                               f"🎮 {type_text}\n"
+                              f"📊 Посмотреть в админ-панели: https://csgosaller-1.onrender.com/admin/product/{product_id}\n"
                               f"🔗 Трейд-ссылка: {text}")
                 for admin_id in ADMIN_IDS:
                     try:
@@ -534,12 +536,59 @@ def bid_custom():
     logging.info(f"Ставка: Лот {lot_id}, {amount}, {user_id}")
     return redirect('/auction')
 
+@app.route('/admin/product/<int:product_id>')
+def admin_product(product_id):
+    if not is_admin():
+        return redirect('/login')
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products WHERE id=?', (product_id,))
+    product = c.fetchone()
+    conn.close()
+    if not product:
+        return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Товар не найден.</div><a href="/admin/products" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
+    
+    status = '✅ Продан' if product[5] else '🟢 В продаже'
+    float_text = f"{product[7]:.4f}" if product[7] is not None and product[9] == 'weapon' else "N/A"
+    ban_text = 'Да' if product[8] else 'Нет'
+    type_text = 'Оружие' if product[9] == 'weapon' else 'Агент'
+    img_html = f'<img src="/static/images/{product[6]}" class="w-full rounded-lg object-cover mb-4" style="max-height:300px;" alt="{product[1]}">' if product[6] else ""
+    
+    html = TAILWIND + f"""
+    <div class="container mx-auto pt-10 pb-10 px-4">
+      <h2 class="text-3xl font-bold text-purple-500 mb-6">📦 Товар ID: {product[0]}</h2>
+      <div class="bg-gray-800 rounded-lg p-6 card">
+        {img_html}
+        <h3 class="text-2xl font-bold text-green-500 mb-2">{product[1]}</h3>
+        <p class="text-gray-300 mb-2">{product[2]}</p>
+        <p class="text-gray-300 mb-2">💰 Цена: {product[3]}₽</p>
+        <p class="text-gray-300 mb-2">📦 Количество: {product[4]}</p>
+        <p class="text-gray-300 mb-2">🔢 Float: {float_text}</p>
+        <p class="text-gray-300 mb-2">🚫 Trade Ban: {ban_text}</p>
+        <p class="text-gray-300 mb-2">🎮 Тип: {type_text}</p>
+        <p class="text-gray-300 mb-4">📊 Статус: {status}</p>
+        <div class="flex flex-col gap-2">
+          {'' if product[5] else f'<form method="post" action="/mark_sold"><input type="hidden" name="product_id" value="{product[0]}"><button class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 btn">✅ Отметить как продан</button></form>'}
+          {'' if not product[5] else f'<form method="post" action="/mark_unsold"><input type="hidden" name="product_id" value="{product[0]}"><button class="bg-yellow-500 text-black px-4 py-2 rounded-lg hover:bg-yellow-600 btn">❌ Отметить как не продан</button></form>'}
+          <form method="post" action="/delete_product"><input type="hidden" name="product_id" value="{product[0]}"><button class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 btn">🗑️ Удалить</button></form>
+        </div>
+      </div>
+      <hr class="border-gray-700 my-6">
+      <a href="/admin/products" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад</a>
+      <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
+        <a href="/admin/products" class="text-gray-300 hover:text-orange-500">📦 Товары</a>
+        <a href="/admin/all_products" class="text-gray-300 hover:text-orange-500">📋 Все товары</a>
+        <a href="/admin/lots" class="text-gray-300 hover:text-orange-500">🏆 Лоты</a>
+      </div>
+    </div>
+    """
+    return html
+
 @app.route('/admin/all_products')
 def admin_all_products():
     if not is_admin():
         return redirect('/login')
     
-    # Подключение к базе данных и получение всех товаров
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products ORDER BY id DESC')
@@ -572,7 +621,7 @@ def admin_all_products():
             img_html = f'<img src="/static/images/{product[6]}" class="w-16 h-16 rounded-lg object-cover" alt="{product[1]}">' if product[6] else ""
             html += f"""
             <tr class="border-b border-gray-700">
-              <td class="p-3">{product[0]}</td>
+              <td class="p-3"><a href="/admin/product/{product[0]}" class="text-blue-500 hover:underline">{product[0]}</a></td>
               <td class="p-3">{img_html}</td>
               <td class="p-3">{product[1]}</td>
               <td class="p-3">{product[2]}</td>
@@ -638,7 +687,7 @@ def admin_products():
         img_html = f'<img src="/static/images/{product[6]}" class="w-16 h-16 rounded-lg object-cover" alt="{product[1]}">' if product[6] else ""
         html += f"""
         <tr class="border-b border-gray-700">
-          <td class="p-3">{product[0]}</td>
+          <td class="p-3"><a href="/admin/product/{product[0]}" class="text-blue-500 hover:underline">{product[0]}</a></td>
           <td class="p-3">{img_html}</td>
           <td class="p-3">{product[1]}</td>
           <td class="p-3">{product[2]}</td>
