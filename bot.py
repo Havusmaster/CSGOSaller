@@ -147,17 +147,16 @@ function openModal(product_id, name, description, price, quantity, float_value, 
   const banText = trade_ban === 1 ? 'Trade Ban: Да' : 'Trade Ban: Нет';
   const typeText = type === 'weapon' ? 'Тип: Оружие' : 'Тип: Агент';
   const modalContent = `
-    <div class="bg-gray-800 rounded-lg p-6 max-w-lg w-full">
-      <h3 class="text-2xl font-bold text-green-500 mb-4">${name}</h3>
-      <p class="text-gray-300 mb-2">${description}</p>
-      <p class="text-gray-300 mb-2">💰 Цена: ${price}₽</p>
-      <p class="text-gray-300 mb-2">📦 Количество: ${quantity}</p>
-      <p class="text-gray-300 mb-2">🔢 ${floatText}</p>
-      <p class="text-gray-300 mb-2">🚫 ${banText}</p>
-      <p class="text-gray-300 mb-4">🎮 ${typeText}</p>
-      <p class="text-gray-300 mb-4">📊 <a href="https://csgosaller-1.onrender.com/admin/product/${product_id}" class="text-blue-500 hover:underline">Посмотреть в админ-панели</a></p>
-      <a href="https://t.me/{BOT_USERNAME}?start=product_${product_id}" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn text-center block">📩 Написать админу</a>
-      <button onclick="closeModal()" class="bg-gray-600 text-white w-full py-2 rounded-lg hover:bg-gray-700 btn mt-2">Закрыть</button>
+    <div class="bg-gray-800 rounded-lg p-4 max-w-md w-full">
+      <h3 class="text-xl font-bold text-green-500 mb-2">${name}</h3>
+      <p class="text-gray-300 text-sm mb-2">${description}</p>
+      <p class="text-gray-300 text-sm mb-2">💰 Цена: ${price}₽</p>
+      <p class="text-gray-300 text-sm mb-2">📦 Количество: ${quantity}</p>
+      <p class="text-gray-300 text-sm mb-2">🔢 ${floatText}</p>
+      <p class="text-gray-300 text-sm mb-2">🚫 ${banText}</p>
+      <p class="text-gray-300 text-sm mb-3">🎮 ${typeText}</p>
+      <a href="https://t.me/{BOT_USERNAME}?start=product_${product_id}" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn text-center block text-sm">📩 Написать админу</a>
+      <button onclick="closeModal()" class="bg-gray-600 text-white w-full py-2 rounded-lg hover:bg-gray-700 btn mt-2 text-sm">Закрыть</button>
     </div>
   `;
   document.getElementById('modalContent').innerHTML = modalContent;
@@ -239,8 +238,8 @@ async def start_cmd(message: types.Message):
                               f"🔢 {float_text}\n"
                               f"🚫 {ban_text}\n"
                               f"🎮 {type_text}\n"
-                              f"📊 Посмотреть в админ-панели: https://csgosaller-1.onrender.com/admin/product/{product_id}\n"
-                              f"Ожидается трейд-ссылка...")
+                              f"📊 Админ-панель: https://csgosaller-1.onrender.com/admin/product/{product_id}\n"
+                              f"🔗 Трейд-ссылка: Ожидается...")
                 for admin_id in ADMIN_IDS:
                     try:
                         await bot.send_message(admin_id, admin_text)
@@ -289,7 +288,7 @@ async def handle_trade_link(message: types.Message):
                               f"🔢 {float_text}\n"
                               f"🚫 {ban_text}\n"
                               f"🎮 {type_text}\n"
-                              f"📊 Посмотреть в админ-панели: https://csgosaller-1.onrender.com/admin/product/{product_id}\n"
+                              f"📊 Админ-панель: https://csgosaller-1.onrender.com/admin/product/{product_id}\n"
                               f"🔗 Трейд-ссылка: {text}")
                 for admin_id in ADMIN_IDS:
                     try:
@@ -324,7 +323,7 @@ async def notify_admins_product(product_id, product_name, description, price, qu
                   f"🔢 {float_text}\n"
                   f"🚫 {ban_text}\n"
                   f"🎮 {type_text}\n"
-                  f"📊 Посмотреть в админ-панели: https://csgosaller-1.onrender.com/admin/product/{product_id}\n"
+                  f"📊 Админ-панель: https://csgosaller-1.onrender.com/admin/product/{product_id}\n"
                   f"{trade_text}")
     for admin_id in ADMIN_IDS:
         try:
@@ -424,17 +423,17 @@ def shop():
         <div class="bg-gray-800 rounded-lg p-4 card">
           {img_html}
           <h5 class="text-xl font-bold text-green-500">{p[1]}</h5>
-          <p class="text-gray-300">{p[2]}</p>
+          <p class="text-gray-300 text-sm">{p[2]}</p>
           <p class="mt-2 text-sm text-gray-400">ID: {p[0]}</p>
           <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">💰 {p[3]}₽</span> <span class="bg-blue-500 text-white px-2 py-1 rounded">📦 Осталось: {p[4]}</span></p>
           <p class="mt-2 text-sm text-gray-400">{float_text} {'' if not float_text else ' | '}{ban_text} | {type_text}</p>
-          <button onclick="openModal({p[0]}, '{p[1].replace("'", "\\'")}', '{p[2].replace("'", "\\'")}', {p[3]}, {p[4]}, {p[7] if p[7] is not None else 'null'}, {p[8]}, '{p[9]}')" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn mt-4">📩 Написать админу</button>
+          <button onclick="openModal({p[0]}, '{p[1].replace("'", "\\'")}', '{p[2].replace("'", "\\'")}', {p[3]}, {p[4]}, {p[7] if p[7] is not None else 'null'}, {p[8]}, '{p[9]}')" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn mt-4 text-sm">📩 Написать админу</button>
         </div>
         """
     html += """
       </div>
       <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div id="modalContent" class="max-w-lg w-full"></div>
+        <div id="modalContent" class="max-w-md w-full"></div>
       </div>
       <hr class="border-gray-700 my-6">
       <a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад</a>
@@ -455,7 +454,7 @@ def buy():
     
     try:
         product_id = request.form.get('product_id')
-        trade_link = request.form.get('trade_link')  # Optional trade link from form
+        trade_link = request.form.get('trade_link')
         logging.info(f"Получен product_id: {product_id}, trade_link: {trade_link}")
         if not product_id:
             logging.error("product_id отсутствует в форме")
@@ -473,12 +472,10 @@ def buy():
             logging.error(f"Товар недоступен: id={pid}, prod={prod}")
             return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Товар недоступен.</div><a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
         
-        # Update product quantity and sold status
         c.execute('UPDATE products SET quantity=quantity-1 WHERE id=?', (pid,))
         if prod[3] == 1:
             c.execute('UPDATE products SET sold=1 WHERE id=?', (pid,))
         
-        # Add to pending requests if user_id exists
         if user_id:
             c.execute('INSERT OR REPLACE INTO pending_requests (user_id, product_id, timestamp) VALUES (?, ?, ?)',
                       (user_id, pid, int(time.time())))
@@ -486,7 +483,6 @@ def buy():
         conn.commit()
         conn.close()
         
-        # Notify admins via Telegram
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(notify_admins_product(
@@ -1085,16 +1081,14 @@ def auction_watcher():
         conn.close()
         time.sleep(5)
 
-Thread(target=auction_watcher, daemon=True).start()
-
-def run_flask():
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port, debug=False)
-
-def run_aiogram():
-    asyncio.run(dp.start_polling(bot))
+Thread(target=auction_watcher).start()
 
 if __name__ == '__main__':
-    flask_process = multiprocessing.Process(target=run_flask)
-    flask_process.start()
-    run_aiogram()
+    def run_bot():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        dp.run_polling(bot)
+    
+    bot_process = multiprocessing.Process(target=run_bot)
+    bot_process.start()
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
