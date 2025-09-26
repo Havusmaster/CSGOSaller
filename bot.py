@@ -146,6 +146,7 @@ function openModal(product_id, name, description, price, quantity, float_value, 
   const floatText = float_value && type === 'weapon' ? `Float: ${parseFloat(float_value).toFixed(4)}` : 'Float: N/A';
   const banText = trade_ban === 1 ? 'Trade Ban: Да' : 'Trade Ban: Нет';
   const typeText = type === 'weapon' ? 'Тип: Оружие' : 'Тип: Агент';
+  const productLink = `https://csgosaller-1.onrender.com/product/${product_id}`;
   const modalContent = `
     <div class="bg-gray-800 rounded-lg p-4 max-w-md w-full">
       <h3 class="text-xl font-bold text-green-500 mb-2">${name}</h3>
@@ -155,6 +156,8 @@ function openModal(product_id, name, description, price, quantity, float_value, 
       <p class="text-gray-300 text-sm mb-2">🔢 ${floatText}</p>
       <p class="text-gray-300 text-sm mb-2">🚫 ${banText}</p>
       <p class="text-gray-300 text-sm mb-3">🎮 ${typeText}</p>
+      <p class="text-gray-300 text-sm mb-3">🔗 Ссылка на товар: <a href="${productLink}" class="text-blue-500 hover:underline">${productLink}</a></p>
+      <p class="text-gray-300 text-sm mb-3">📋 Отправьте эту ссылку и вашу трейд-ссылку администратору в Telegram!</p>
       <a href="https://t.me/{BOT_USERNAME}?start=product_${product_id}" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn text-center block text-sm">📩 Написать админу</a>
       <button onclick="closeModal()" class="bg-gray-600 text-white w-full py-2 rounded-lg hover:bg-gray-700 btn mt-2 text-sm">Закрыть</button>
     </div>
@@ -214,14 +217,16 @@ async def start_cmd(message: types.Message):
                 float_text = f"Float: {prod[4]:.4f}" if prod[4] is not None and prod[6] == 'weapon' else "Float: N/A"
                 ban_text = "Trade Ban: Да" if prod[5] else "Trade Ban: Нет"
                 type_text = "Тип: Оружие" if prod[6] == 'weapon' else "Тип: Агент"
+                product_link = f"https://csgosaller-1.onrender.com/product/{product_id}"
                 text = (f"📦 Товар: {prod[0]}\n"
                         f"📜 Описание: {prod[1]}\n"
                         f"💰 Цена: {prod[2]}₽\n"
                         f"📦 Количество: {prod[3]}\n"
                         f"🔢 {float_text}\n"
                         f"🚫 {ban_text}\n"
-                        f"🎮 {type_text}\n\n"
-                        f"Пожалуйста, отправьте вашу трейд-ссылку для покупки!")
+                        f"🎮 {type_text}\n"
+                        f"🔗 Ссылка на товар: {product_link}\n\n"
+                        f"Пожалуйста, отправьте вашу трейд-ссылку и ссылку на товар ({product_link}) для покупки!")
                 admin_url = f"https://t.me/{ADMIN_USERNAME}" if not ADMIN_USERNAME.startswith('+') else f"https://t.me/{ADMIN_USERNAME}"
                 await message.answer(text, reply_markup=types.ReplyKeyboardMarkup(
                     resize_keyboard=True,
@@ -272,49 +277,52 @@ async def handle_trade_link(message: types.Message):
     request = c.fetchone()
     if request:
         product_id = request[0]
-        if re.match(r'^https://steamcommunity\.com/tradeoffer/.*', text):
-            c.execute('SELECT name, description, price, quantity, float_value, trade_ban, type FROM products WHERE id=?', (product_id,))
-            prod = c.fetchone()
-            if prod:
-                float_text = f"Float: {prod[4]:.4f}" if prod[4] is not None and prod[6] == 'weapon' else "Float: N/A"
-                ban_text = "Trade Ban: Да" if prod[5] else "Trade Ban: Нет"
-                type_text = "Тип: Оружие" if prod[6] == 'weapon' else "Тип: Агент"
-                user_link = f"@{username}" if message.from_user.username else f"https://t.me/+{user_id}"
-                admin_text = (f"🔔 Пользователь {user_link} отправил трейд-ссылку для товара!\n"
-                              f"📦 Товар: {prod[0]} (ID: {product_id})\n"
-                              f"📜 Описание: {prod[1]}\n"
-                              f"💰 Цена: {prod[2]}₽\n"
-                              f"📦 Количество: {prod[3]}\n"
-                              f"🔢 {float_text}\n"
-                              f"🚫 {ban_text}\n"
-                              f"🎮 {type_text}\n"
-                              f"📊 Админ-панель: https://csgosaller-1.onrender.com/admin/product/{product_id}\n"
-                              f"🔗 Трейд-ссылка: {text}")
-                for admin_id in ADMIN_IDS:
-                    try:
-                        await bot.send_message(admin_id, admin_text)
-                        logging.info(f"Трейд-ссылка отправлена админу ID{admin_id} для продукта {product_id}")
-                    except Exception as e:
-                        logging.error(f"Ошибка отправки трейд-ссылки админу ID{admin_id}: {e}")
-                await message.answer("✅ Ваша трейд-ссылка отправлена администратору! Ожидайте ответа.", reply_markup=main_kb(user_id))
-                c.execute('DELETE FROM pending_requests WHERE user_id=? AND product_id=?', (user_id, product_id))
-                conn.commit()
-            else:
-                await message.answer("Товар не найден. Попробуйте снова.", reply_markup=main_kb(user_id))
-                c.execute('DELETE FROM pending_requests WHERE user_id=? AND product_id=?', (user_id, product_id))
-                conn.commit()
+        product_link_match = re.search(r'https://csgosaller-1\.onrender\.com/product/\d+', text)
+        trade_link_match = re.search(r'https://steamcommunity\.com/tradeoffer/.*', text)
+        product_link = product_link_match.group(0) if product_link_match else None
+        trade_link = trade_link_match.group(0) if trade_link_match else None
+        c.execute('SELECT name, description, price, quantity, float_value, trade_ban, type FROM products WHERE id=?', (product_id,))
+        prod = c.fetchone()
+        if prod:
+            float_text = f"Float: {prod[4]:.4f}" if prod[4] is not None and prod[6] == 'weapon' else "Float: N/A"
+            ban_text = "Trade Ban: Да" if prod[5] else "Trade Ban: Нет"
+            type_text = "Тип: Оружие" if prod[6] == 'weapon' else "Тип: Агент"
+            user_link = f"@{username}" if message.from_user.username else f"https://t.me/+{user_id}"
+            admin_text = (f"🔔 Пользователь {user_link} отправил трейд-ссылку для товара!\n"
+                          f"📦 Товар: {prod[0]} (ID: {product_id})\n"
+                          f"📜 Описание: {prod[1]}\n"
+                          f"💰 Цена: {prod[2]}₽\n"
+                          f"📦 Количество: {prod[3]}\n"
+                          f"🔢 {float_text}\n"
+                          f"🚫 {ban_text}\n"
+                          f"🎮 {type_text}\n"
+                          f"📊 Админ-панель: https://csgosaller-1.onrender.com/admin/product/{product_id}\n"
+                          f"🔗 Трейд-ссылка: {trade_link if trade_link else 'Не предоставлена'}\n"
+                          f"🔗 Ссылка на товар: {product_link if product_link else 'Не предоставлена'}")
+            for admin_id in ADMIN_IDS:
+                try:
+                    await bot.send_message(admin_id, admin_text)
+                    logging.info(f"Трейд-ссылка и ссылка на товар отправлены админу ID{admin_id} для продукта {product_id}")
+                except Exception as e:
+                    logging.error(f"Ошибка отправки админу ID{admin_id}: {e}")
+            await message.answer("✅ Ваши ссылки отправлены администратору! Ожидайте ответа.", reply_markup=main_kb(user_id))
+            c.execute('DELETE FROM pending_requests WHERE user_id=? AND product_id=?', (user_id, product_id))
+            conn.commit()
         else:
-            await message.answer("❌ Пожалуйста, отправьте действительную трейд-ссылку (например, https://steamcommunity.com/tradeoffer/...).", reply_markup=main_kb(user_id))
-        conn.close()
+            await message.answer("Товар не найден. Попробуйте снова.", reply_markup=main_kb(user_id))
+            c.execute('DELETE FROM pending_requests WHERE user_id=? AND product_id=?', (user_id, product_id))
+            conn.commit()
     else:
-        conn.close()
+        await message.answer("❌ Пожалуйста, отправьте действительную трейд-ссылку (например, https://steamcommunity.com/tradeoffer/...) и ссылку на товар (https://csgosaller-1.onrender.com/product/...).", reply_markup=main_kb(user_id))
+    conn.close()
 
-async def notify_admins_product(product_id, product_name, description, price, quantity, float_value, trade_ban, product_type, user_id, trade_link=None):
+async def notify_admins_product(product_id, product_name, description, price, quantity, float_value, trade_ban, product_type, user_id, trade_link=None, product_link=None):
     float_text = f"🔢 Float: {float_value:.4f}" if float_value is not None and product_type == 'weapon' else "🔢 Float: N/A"
     ban_text = "🚫 Trade Ban: Да" if trade_ban else "🚫 Trade Ban: Нет"
     type_text = "🎮 Тип: Оружие" if product_type == 'weapon' else "🎮 Тип: Агент"
     user_link = f"ID{user_id}"
     trade_text = f"🔗 Трейд-ссылка: {trade_link}" if trade_link else "🔗 Трейд-ссылка: Ожидается"
+    product_link_text = f"🔗 Ссылка на товар: {product_link}" if product_link else "🔗 Ссылка на товар: Ожидается"
     admin_text = (f"🔔 Пользователь {user_link} хочет купить товар!\n"
                   f"📦 Товар: {product_name} (ID: {product_id})\n"
                   f"📜 Описание: {description}\n"
@@ -324,7 +332,8 @@ async def notify_admins_product(product_id, product_name, description, price, qu
                   f"🚫 {ban_text}\n"
                   f"🎮 {type_text}\n"
                   f"📊 Админ-панель: https://csgosaller-1.onrender.com/admin/product/{product_id}\n"
-                  f"{trade_text}")
+                  f"{trade_text}\n"
+                  f"{product_link_text}")
     for admin_id in ADMIN_IDS:
         try:
             await bot.send_message(admin_id, admin_text)
@@ -445,6 +454,54 @@ def shop():
     """
     return html
 
+@app.route('/product/<int:product_id>')
+def product(product_id):
+    if not is_admin():
+        return redirect('/login')
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products WHERE id=?', (product_id,))
+    product = c.fetchone()
+    conn.close()
+    if not product:
+        return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Товар не найден.</div><a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
+    
+    status = '✅ Продан' if product[5] else '🟢 В продаже'
+    float_text = f"{product[7]:.4f}" if product[7] is not None and product[9] == 'weapon' else "N/A"
+    ban_text = 'Да' if product[8] else 'Нет'
+    type_text = 'Оружие' if product[9] == 'weapon' else 'Агент'
+    img_html = f'<img src="/static/images/{product[6]}" class="w-full rounded-lg object-cover mb-4" style="max-height:300px;" alt="{product[1]}">' if product[6] else ""
+    
+    html = TAILWIND + f"""
+    <div class="container mx-auto pt-10 pb-10 px-4">
+      <h2 class="text-3xl font-bold text-purple-500 mb-6">📦 Товар ID: {product[0]}</h2>
+      <div class="bg-gray-800 rounded-lg p-6 card">
+        {img_html}
+        <h3 class="text-2xl font-bold text-green-500 mb-2">{product[1]}</h3>
+        <p class="text-gray-300 mb-2">{product[2]}</p>
+        <p class="text-gray-300 mb-2">💰 Цена: {product[3]}₽</p>
+        <p class="text-gray-300 mb-2">📦 Количество: {product[4]}</p>
+        <p class="text-gray-300 mb-2">🔢 Float: {float_text}</p>
+        <p class="text-gray-300 mb-2">🚫 Trade Ban: {ban_text}</p>
+        <p class="text-gray-300 mb-2">🎮 Тип: {type_text}</p>
+        <p class="text-gray-300 mb-4">📊 Статус: {status}</p>
+        <div class="flex flex-col gap-2">
+          {'' if product[5] else f'<form method="post" action="/mark_sold"><input type="hidden" name="product_id" value="{product[0]}"><button class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 btn">✅ Отметить как продан</button></form>'}
+          {'' if not product[5] else f'<form method="post" action="/mark_unsold"><input type="hidden" name="product_id" value="{product[0]}"><button class="bg-yellow-500 text-black px-4 py-2 rounded-lg hover:bg-yellow-600 btn">❌ Отметить как не продан</button></form>'}
+          <form method="post" action="/delete_product"><input type="hidden" name="product_id" value="{product[0]}"><button class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 btn">🗑️ Удалить</button></form>
+        </div>
+      </div>
+      <hr class="border-gray-700 my-6">
+      <a href="/admin/products" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад</a>
+      <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
+        <a href="/admin/products" class="text-gray-300 hover:text-orange-500">📦 Товары</a>
+        <a href="/admin/all_products" class="text-gray-300 hover:text-orange-500">📋 Все товары</a>
+        <a href="/admin/lots" class="text-gray-300 hover:text-orange-500">🏆 Лоты</a>
+      </div>
+    </div>
+    """
+    return html
+
 @app.route('/buy', methods=['POST'])
 def buy():
     logging.info("Маршрут /buy вызван")
@@ -455,7 +512,8 @@ def buy():
     try:
         product_id = request.form.get('product_id')
         trade_link = request.form.get('trade_link')
-        logging.info(f"Получен product_id: {product_id}, trade_link: {trade_link}")
+        product_link = f"https://csgosaller-1.onrender.com/product/{product_id}" if product_id else None
+        logging.info(f"Получен product_id: {product_id}, trade_link: {trade_link}, product_link: {product_link}")
         if not product_id:
             logging.error("product_id отсутствует в форме")
             return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Ошибка: ID товара не указан.</div><a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
@@ -495,7 +553,8 @@ def buy():
             trade_ban=prod[5],
             product_type=prod[6],
             user_id=user_id or 0,
-            trade_link=trade_link
+            trade_link=trade_link,
+            product_link=product_link
         ))
         loop.close()
         
