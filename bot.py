@@ -310,6 +310,29 @@ async def handle_trade_link(message: types.Message):
     else:
         conn.close()
 
+async def notify_admins_product(product_id, product_name, description, price, quantity, float_value, trade_ban, product_type, user_id, trade_link=None):
+    float_text = f"🔢 Float: {float_value:.4f}" if float_value is not None and product_type == 'weapon' else "🔢 Float: N/A"
+    ban_text = "🚫 Trade Ban: Да" if trade_ban else "🚫 Trade Ban: Нет"
+    type_text = "🎮 Тип: Оружие" if product_type == 'weapon' else "🎮 Тип: Агент"
+    user_link = f"ID{user_id}"
+    trade_text = f"🔗 Трейд-ссылка: {trade_link}" if trade_link else "🔗 Трейд-ссылка: Ожидается"
+    admin_text = (f"🔔 Пользователь {user_link} хочет купить товар!\n"
+                  f"📦 Товар: {product_name} (ID: {product_id})\n"
+                  f"📜 Описание: {description}\n"
+                  f"💰 Цена: {price}₽\n"
+                  f"📦 Количество: {quantity}\n"
+                  f"🔢 {float_text}\n"
+                  f"🚫 {ban_text}\n"
+                  f"🎮 {type_text}\n"
+                  f"📊 Посмотреть в админ-панели: https://csgosaller-1.onrender.com/admin/product/{product_id}\n"
+                  f"{trade_text}")
+    for admin_id in ADMIN_IDS:
+        try:
+            await bot.send_message(admin_id, admin_text)
+            logging.info(f"Уведомление о покупке отправлено админу ID{admin_id}: {product_name} (ID: {product_id})")
+        except Exception as e:
+            logging.error(f"Ошибка отправки уведомления о покупке админу ID{admin_id}: {e}")
+
 def notify_admins_auction(lot_id, lot_name, price, winner_id, float_value, trade_ban, lot_type):
     float_text = f"🔢 Float: {float_value:.4f}" if float_value is not None and lot_type == 'weapon' else "🔢 Float: N/A"
     ban_text = "🚫 Trade Ban: Да" if trade_ban else "🚫 Trade Ban: Нет"
@@ -432,7 +455,8 @@ def buy():
     
     try:
         product_id = request.form.get('product_id')
-        logging.info(f"Получен product_id: {product_id}")
+        trade_link = request.form.get('trade_link')  # Optional trade link from form
+        logging.info(f"Получен product_id: {product_id}, trade_link: {trade_link}")
         if not product_id:
             logging.error("product_id отсутствует в форме")
             return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Ошибка: ID товара не указан.</div><a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
@@ -440,21 +464,46 @@ def buy():
         pid = int(product_id)
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute('SELECT name, price, quantity, description, float_value, trade_ban, type FROM products WHERE id=? AND sold=0', (pid,))
+        c.execute('SELECT name, description, price, quantity, float_value, trade_ban, type FROM products WHERE id=? AND sold=0 AND quantity>0', (pid,))
         prod = c.fetchone()
         logging.info(f"Результат запроса к products: {prod}")
         
-        if not prod or prod[2] < 1:
+        if not prod:
             conn.close()
             logging.error(f"Товар недоступен: id={pid}, prod={prod}")
             return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Товар недоступен.</div><a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
         
+        # Update product quantity and sold status
         c.execute('UPDATE products SET quantity=quantity-1 WHERE id=?', (pid,))
-        if prod[2] == 1:
+        if prod[3] == 1:
             c.execute('UPDATE products SET sold=1 WHERE id=?', (pid,))
+        
+        # Add to pending requests if user_id exists
+        if user_id:
+            c.execute('INSERT OR REPLACE INTO pending_requests (user_id, product_id, timestamp) VALUES (?, ?, ?)',
+                      (user_id, pid, int(time.time())))
+        
         conn.commit()
         conn.close()
-        logging.info(f"Покупка успешна: {prod[0]}, {prod[1]}, {buyer}, {prod[3]}, {prod[2]}, Float: {prod[4]}, Trade Ban: {prod[5]}, Type: {prod[6]}")
+        
+        # Notify admins via Telegram
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(notify_admins_product(
+            product_id=pid,
+            product_name=prod[0],
+            description=prod[1],
+            price=prod[2],
+            quantity=prod[3],
+            float_value=prod[4],
+            trade_ban=prod[5],
+            product_type=prod[6],
+            user_id=user_id or 0,
+            trade_link=trade_link
+        ))
+        loop.close()
+        
+        logging.info(f"Покупка успешна: {prod[0]}, {prod[2]}, {buyer}, {prod[1]}, {prod[3]}, Float: {prod[4]}, Trade Ban: {prod[5]}, Type: {prod[6]}")
         return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-green-600 text-white p-4 rounded-lg">✅ Заявка на покупку отправлена администратору!</div><a href="/" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
     
     except Exception as e:
