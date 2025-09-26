@@ -583,50 +583,50 @@ def shop():
 
 @app.route('/product/<int:product_id>')
 def product(product_id):
-    if not is_admin():
-        return redirect('/login')
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products WHERE id=?', (product_id,))
     product = c.fetchone()
     conn.close()
-    if not product:
-        return TAILWIND + '<div class="container mx-auto pt-10 pb-10 px-4"><div class="bg-red-600 text-white p-4 rounded-lg">Товар не найден.</div><a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">Назад</a></div>'
     
-    status = '✅ Продан' if product[5] else '🟢 В продаже'
+    if not product:
+        return TAILWIND + '''
+        <div class="container mx-auto pt-10 pb-10 px-4">
+            <div class="bg-red-600 text-white p-4 rounded-lg">Товар не найден.</div>
+            <a href="/shop" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn mt-4 block text-center">⬅️ Вернуться в магазин</a>
+        </div>
+        '''
+    
     float_text = f"{product[7]:.4f}" if product[7] is not None and product[9] == 'weapon' else "N/A"
     ban_text = 'Да' if product[8] else 'Нет'
     type_text = 'Оружие' if product[9] == 'weapon' else 'Агент'
     img_html = f'<img src="/static/images/{product[6]}" class="w-full rounded-lg object-cover mb-4" style="max-height:300px;" alt="{product[1]}">' if product[6] else ""
+    product_link = f"https://csgosaller-1.onrender.com/product/{product[0]}"
+    admin_url = f"https://t.me/{ADMIN_USERNAME}" if not ADMIN_USERNAME.startswith('+') else f"https://t.me/{ADMIN_USERNAME}"
     
-    html = TAILWIND + f"""
+    html = TAILWIND + f'''
     <div class="container mx-auto pt-10 pb-10 px-4">
-      <h2 class="text-3xl font-bold text-purple-500 mb-6">📦 Товар ID: {product[0]}</h2>
-      <div class="bg-gray-800 rounded-lg p-6 card">
-        {img_html}
-        <h3 class="text-2xl font-bold text-green-500 mb-2">{product[1]}</h3>
-        <p class="text-gray-300 mb-2">{product[2]}</p>
-        <p class="text-gray-300 mb-2">💰 Цена: {product[3]}₽</p>
-        <p class="text-gray-300 mb-2">📦 Количество: {product[4]}</p>
-        <p class="text-gray-300 mb-2">🔢 Float: {float_text}</p>
-        <p class="text-gray-300 mb-2">🚫 Trade Ban: {ban_text}</p>
-        <p class="text-gray-300 mb-2">🎮 Тип: {type_text}</p>
-        <p class="text-gray-300 mb-4">📊 Статус: {status}</p>
-        <div class="flex flex-col gap-2">
-          {'' if product[5] else f'<form method="post" action="/mark_sold"><input type="hidden" name="product_id" value="{product[0]}"><button class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 btn">✅ Отметить как продан</button></form>'}
-          {'' if not product[5] else f'<form method="post" action="/mark_unsold"><input type="hidden" name="product_id" value="{product[0]}"><button class="bg-yellow-500 text-black px-4 py-2 rounded-lg hover:bg-yellow-600 btn">❌ Отметить как не продан</button></form>'}
-          <form method="post" action="/delete_product"><input type="hidden" name="product_id" value="{product[0]}"><button class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 btn">🗑️ Удалить</button></form>
+        <h2 class="text-3xl font-bold text-green-500 mb-6">📦 Товар ID: {product[0]}</h2>
+        <div class="bg-gray-800 rounded-lg p-6 card">
+            {img_html}
+            <h3 class="text-2xl font-bold text-green-500 mb-2">{product[1]}</h3>
+            <p class="text-gray-300 text-sm mb-2">{product[2]}</p>
+            <p class="text-gray-300 text-sm mb-2">💰 Цена: {product[3]}₽</p>
+            <p class="text-gray-300 text-sm mb-2">📦 Количество: {product[4]}</p>
+            <p class="text-gray-300 text-sm mb-2">🔢 Float: {float_text}</p>
+            <p class="text-gray-300 text-sm mb-2">🚫 Trade Ban: {ban_text}</p>
+            <p class="text-gray-300 text-sm mb-3">🎮 Тип: {type_text}</p>
+            <p class="text-gray-300 text-sm mb-3">🔗 Ссылка на товар: <a href="{product_link}" class="text-blue-500 hover:underline">{product_link}</a></p>
+            <p class="text-gray-300 text-sm mb-3">📋 Отправьте эту ссылку и вашу трейд-ссылку администратору в Telegram!</p>
+            <a href="{admin_url}" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn text-center block text-sm">📩 Написать админу</a>
+            <a href="/shop" class="bg-gray-800 text-white w-full py-2 rounded-lg hover:bg-gray-700 btn mt-2 text-sm text-center">⬅️ Вернуться в магазин</a>
         </div>
-      </div>
-      <hr class="border-gray-700 my-6">
-      <a href="/admin/products" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 btn w-full text-center">⬅️ Назад</a>
-      <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
-        <a href="/admin/products" class="text-gray-300 hover:text-orange-500">📦 Товары</a>
-        <a href="/admin/all_products" class="text-gray-300 hover:text-orange-500">📋 Все товары</a>
-        <a href="/admin/lots" class="text-gray-300 hover:text-orange-500">🏆 Лоты</a>
-      </div>
+        <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-3 md:hidden">
+            <a href="/shop" class="text-gray-300 hover:text-orange-500">🛒 Магазин</a>
+            <a href="/auction" class="text-gray-300 hover:text-orange-500">🏆 Аукцион</a>
+        </div>
     </div>
-    """
+    '''
     return html
 
 @app.route('/buy', methods=['POST'])
