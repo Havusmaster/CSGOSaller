@@ -105,7 +105,7 @@ app.config['UPLOAD_FOLDER'] = 'static/images/'
 app.config['DEBUG'] = True
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Tailwind CSS и JavaScript
+# Tailwind CSS и JavaScript с поддержкой Telegram WebApp
 TAILWIND = """
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
@@ -158,12 +158,19 @@ function openModal(product_id, name, description, price, quantity, float_value, 
       <p class="text-gray-300 text-sm mb-3">🎮 ${typeText}</p>
       <p class="text-gray-300 text-sm mb-3">🔗 Ссылка на товар: <a href="${productLink}" class="text-blue-500 hover:underline">${productLink}</a></p>
       <p class="text-gray-300 text-sm mb-3">📋 Отправьте эту ссылку и вашу трейд-ссылку администратору в Telegram!</p>
-      <a href="https://t.me/{BOT_USERNAME}?start=product_${product_id}" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn text-center block text-sm">📩 Написать админу</a>
+      <button onclick="openTelegramChat(${product_id})" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn text-center block text-sm">📩 Написать админу</button>
       <button onclick="closeModal()" class="bg-gray-600 text-white w-full py-2 rounded-lg hover:bg-gray-700 btn mt-2 text-sm">Закрыть</button>
     </div>
   `;
   document.getElementById('modalContent').innerHTML = modalContent;
   document.getElementById('modal').classList.add('show');
+}
+function openTelegramChat(product_id) {
+  if (window.Telegram && window.Telegram.WebApp) {
+    window.Telegram.WebApp.openTelegramLink(`https://t.me/{BOT_USERNAME}?start=product_${product_id}`);
+  } else {
+    window.location.href = `https://t.me/{BOT_USERNAME}?start=product_${product_id}`;
+  }
 }
 function closeModal() {
   document.getElementById('modal').classList.remove('show');
