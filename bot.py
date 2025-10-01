@@ -3,8 +3,10 @@ import multiprocessing
 from telegram_bot import run_bot
 from webapp import app
 from admin_routes import *
+from database import init_db
 
 if __name__ == '__main__':
+    init_db()  # Initialize the database
     def start_bot():
         run_bot()
 
