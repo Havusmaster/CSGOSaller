@@ -7,6 +7,7 @@ from config import ADMIN_IDS, BOT_USERNAME, ADMIN_USERNAME
 from database import DB_PATH
 from telegram_bot import notify_admins_product, bot
 import asyncio
+import time
 
 logging.basicConfig(filename="bot.log", level=logging.INFO, format="%(asctime)s %(message)s")
 
@@ -78,6 +79,9 @@ def shop():
         ban_text = "Trade Ban: Да" if p[8] else "Trade Ban: Нет"
         type_text = "Тип: Оружие" if p[9] == 'weapon' else "Тип: Агент"
         product_link = f"https://csgosaller-1.onrender.com/product/{p[0]}"
+        # Escape single quotes outside the f-string
+        escaped_name = p[1].replace("'", "\\'")
+        escaped_desc = p[2].replace("'", "\\'")
         html += f"""
         <div class="bg-gray-800 rounded-lg p-4 card">
           {img_html}
@@ -86,7 +90,7 @@ def shop():
           <p class="mt-2 text-sm text-gray-400">ID: {p[0]}</p>
           <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">💰 {p[3]}₽</span> <span class="bg-blue-500 text-white px-2 py-1 rounded">📦 Осталось: {p[4]}</span></p>
           <p class="mt-2 text-sm text-gray-400">{float_text} {'' if not float_text else ' | '}{ban_text} | {type_text}</p>
-          <button onclick="openModal({p[0]}, '{p[1].replace("'", "\\'")}', '{p[2].replace("'", "\\'")}', {p[3]}, {p[4]}, {p[7] if p[7] is not None else 'null'}, {p[8]}, '{p[9]}')" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn mt-4 text-sm">📩 Написать админу</button>
+          <button onclick="openModal({p[0]}, '{escaped_name}', '{escaped_desc}', {p[3]}, {p[4]}, {p[7] if p[7] is not None else 'null'}, {p[8]}, '{p[9]}')" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 btn mt-4 text-sm">📩 Написать админу</button>
         </div>
         """
     html += """
