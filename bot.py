@@ -2,6 +2,7 @@ import os
 import multiprocessing
 from telegram_bot import run_bot
 from webapp import app
+from admin_routes import *
 
 if __name__ == '__main__':
     def start_bot():
