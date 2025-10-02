@@ -1,7 +1,7 @@
 import os
 import logging
 from aiogram import Bot, Dispatcher, types
-from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram.fsm.storage.memory import MemoryStorage  # Updated import
 from config import BOT_TOKEN, BOT_USERNAME
 
 logging.basicConfig(filename="bot.log", level=logging.INFO, format="%(asctime)s %(message)s")
