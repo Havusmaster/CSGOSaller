@@ -136,37 +136,51 @@ def index():
                 user_id = None
                 logging.error("Failed to parse user_id from query")
     t = TRANSLATIONS[lang]
-    html = TAILWIND + f"""
+    html = TAILWIND + """
     <div class="container mx-auto pt-12 pb-10 px-4 text-center bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
       <header class="flex justify-between items-center mb-8">
-        <h1 class="text-4xl md:text-5xl font-extrabold text-orange-500 animate-pulse">{t['title']}</h1>
+        <h1 class="text-4xl md:text-5xl font-extrabold text-orange-500 animate-pulse">{}</h1>
         <div class="relative">
           <select onchange="window.location.href='/?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500">
-            <option value="ru" {"selected" if lang == "ru" else ""}>{t['russian']}</option>
-            <option value="uz" {"selected" if lang == "uz" else ""}>{t['uzbek']}</option>
+            <option value="ru" {}>{}</option>
+            <option value="uz" {}>{}</option>
           </select>
         </div>
       </header>
-      <p class="text-lg md:text-xl text-gray-300 mb-8 max-w-2xl mx-auto">{t['welcome_message']}</p>
+      <p class="text-lg md:text-xl text-gray-300 mb-8 max-w-2xl mx-auto">{}</p>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 max-w-4xl mx-auto">
-        <button onclick="openModal('welcome', '{t['welcome_title']}', '{t['welcome_message']}', 0, 0, null, 0, 'welcome')" class="bg-orange-500 text-white font-semibold py-4 px-6 rounded-lg shadow-lg hover:bg-orange-600 transform hover:scale-105 transition duration-300 btn">{t['start']}</button>
-        <a href="/shop?lang={lang}" class="bg-green-600 text-white font-semibold py-4 px-6 rounded-lg shadow-lg hover:bg-green-700 transform hover:scale-105 transition duration-300 btn">{t['shop']}</a>
-        <a href="/auction?lang={lang}" class="bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-lg hover:bg-blue-700 transform hover:scale-105 transition duration-300 btn">{t['auction']}</a>
+        <button onclick="openModal('welcome', '{}', '{}', 0, 0, null, 0, 'welcome')" class="bg-orange-500 text-white font-semibold py-4 px-6 rounded-lg shadow-lg hover:bg-orange-600 transform hover:scale-105 transition duration-300 btn">{}</button>
+        <a href="/shop?lang={}" class="bg-green-600 text-white font-semibold py-4 px-6 rounded-lg shadow-lg hover:bg-green-700 transform hover:scale-105 transition duration-300 btn">{}</a>
+        <a href="/auction?lang={}" class="bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-lg hover:bg-blue-700 transform hover:scale-105 transition duration-300 btn">{}</a>
       </div>
-    """
+    """.format(
+        t['title'],
+        'selected' if lang == 'ru' else '',
+        t['russian'],
+        'selected' if lang == 'uz' else '',
+        t['uzbek'],
+        t['welcome_message'],
+        t['welcome_title'],
+        t['welcome_message'],
+        t['start'],
+        lang,
+        t['shop'],
+        lang,
+        t['auction']
+    )
     if user_id in ADMIN_IDS:
-        html += f'<a href="/admin/products?lang={lang}" class="bg-gray-700 text-white font-semibold py-4 px-6 rounded-lg shadow-lg hover:bg-gray-600 transform hover:scale-105 transition duration-300 btn inline-block">{t['admin_panel']}</a>'
-    html += f"""
+        html += '<a href="/admin/products?lang={}" class="bg-gray-700 text-white font-semibold py-4 px-6 rounded-lg shadow-lg hover:bg-gray-600 transform hover:scale-105 transition duration-300 btn inline-block">{}</a>'.format(lang, t['admin_panel'])
+    html += """
       <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div id="modalContent" class="max-w-md w-full"></div>
       </div>
       <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-4 md:hidden">
-        <a href="/?lang={lang}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{t['home']}</a>
-        <a href="/shop?lang={lang}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{t['shop']}</a>
-        <a href="/auction?lang={lang}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{t['auction']}</a>
+        <a href="/?lang={}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{}</a>
+        <a href="/shop?lang={}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{}</a>
+        <a href="/auction?lang={}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{}</a>
       </div>
     </div>
-    """
+    """.format(lang, t['home'], lang, t['shop'], lang, t['auction'])
     return html
 
 @app.route('/shop')
@@ -181,51 +195,79 @@ def shop():
     c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products WHERE sold=0 AND quantity>0')
     products = c.fetchall()
     conn.close()
-    html = TAILWIND + f"""
+    html = TAILWIND + """
     <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
       <header class="flex justify-between items-center mb-8">
-        <h2 class="text-3xl font-bold text-green-500">{t['shop_title']}</h2>
+        <h2 class="text-3xl font-bold text-green-500">{}</h2>
         <div class="relative">
           <select onchange="window.location.href='/shop?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-            <option value="ru" {"selected" if lang == "ru" else ""}>{t['russian']}</option>
-            <option value="uz" {"selected" if lang == "uz" else ""}>{t['uzbek']}</option>
+            <option value="ru" {}>{}</option>
+            <option value="uz" {}>{}</option>
           </select>
         </div>
       </header>
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-    """
+    """.format(
+        t['shop_title'],
+        'selected' if lang == 'ru' else '',
+        t['russian'],
+        'selected' if lang == 'uz' else '',
+        t['uzbek']
+    )
     for p in products:
-        img_html = f'<img src="/static/images/{p[6]}" class="mb-4 w-full rounded-lg object-cover shadow-md animate-fade-in" style="max-height:180px;" alt="{p[1]}">' if p[6] else ""
-        float_text = f"{t['float']}: {p[7]:.4f}" if p[7] is not None and p[9] == 'weapon' else f"{t['float']}: {t['na']}"
-        ban_text = f"{t['trade_ban']}: {t['yes']}" if p[8] else f"{t['trade_ban']}: {t['no']}"
-        type_text = f"{t['type']}: {t['weapon']}" if p[9] == 'weapon' else f"{t['type']}: {t['agent']}"
+        img_html = '<img src="/static/images/{}" class="mb-4 w-full rounded-lg object-cover shadow-md animate-fade-in" style="max-height:180px;" alt="{}">'.format(p[6], p[1]) if p[6] else ""
+        float_text = "{}: {:.4f}".format(t['float'], p[7]) if p[7] is not None and p[9] == 'weapon' else "{}: {}".format(t['float'], t['na'])
+        ban_text = "{}: {}".format(t['trade_ban'], t['yes'] if p[8] else t['no'])
+        type_text = "{}: {}".format(t['type'], t['weapon'] if p[9] == 'weapon' else t['agent'])
         product_link = f"https://csgosaller-1.onrender.com/product/{p[0]}"
         escaped_name = p[1].replace("'", "\\'")
         escaped_desc = p[2].replace("'", "\\'")
-        html += f"""
+        html += """
         <div class="bg-gray-800 rounded-lg p-4 card shadow-lg hover:shadow-xl transition duration-300 animate-fade-in">
-          {img_html}
-          <h5 class="text-xl font-bold text-green-500 mb-2">{p[1]}</h5>
-          <p class="text-gray-300 text-sm mb-2">{p[2]}</p>
-          <p class="text-sm text-gray-400 mb-2">{t['product_id']}: {p[0]}</p>
-          <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">{t['price']}: {p[3]}₽</span> <span class="bg-blue-500 text-white px-2 py-1 rounded ml-2">{t['quantity']}: {p[4]}</span></p>
-          <p class="mt-2 text-sm text-gray-400">{float_text} | {ban_text} | {type_text}</p>
-          <button onclick="openModal({p[0]}, '{escaped_name}', '{escaped_desc}', {p[3]}, {p[4]}, {p[7] if p[7] is not None else 'null'}, {p[8]}, '{p[9]}')" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 transform hover:scale-105 transition duration-300 btn mt-4 text-sm">{t['contact_admin']}</button>
+          {}
+          <h5 class="text-xl font-bold text-green-500 mb-2">{}</h5>
+          <p class="text-gray-300 text-sm mb-2">{}</p>
+          <p class="text-sm text-gray-400 mb-2">{}: {}</p>
+          <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">{}: {}₽</span> <span class="bg-blue-500 text-white px-2 py-1 rounded ml-2">{}: {}</span></p>
+          <p class="mt-2 text-sm text-gray-400">{} | {} | {}</p>
+          <button onclick="openModal({}, '{}', '{}', {}, {}, {}, {}, '{}')" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 transform hover:scale-105 transition duration-300 btn mt-4 text-sm">{}</button>
         </div>
-        """
-    html += f"""
+        """.format(
+            img_html,
+            p[1],
+            p[2],
+            t['product_id'],
+            p[0],
+            t['price'],
+            p[3],
+            t['quantity'],
+            p[4],
+            float_text,
+            ban_text,
+            type_text,
+            p[0],
+            escaped_name,
+            escaped_desc,
+            p[3],
+            p[4],
+            p[7] if p[7] is not None else 'null',
+            p[8],
+            p[9],
+            t['contact_admin']
+        )
+    html += """
       </div>
       <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div id="modalContent" class="max-w-md w-full"></div>
       </div>
       <hr class="border-gray-700 my-8">
-      <a href="/?lang={lang}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn w-full text-center">{t['back']}</a>
+      <a href="/?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn w-full text-center">{}</a>
       <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-4 md:hidden">
-        <a href="/?lang={lang}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{t['home']}</a>
-        <a href="/auction?lang={lang}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{t['auction']}</a>
+        <a href="/?lang={}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{}</a>
+        <a href="/auction?lang={}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{}</a>
       </div>
     </div>
-    """
+    """.format(lang, t['back'], lang, t['home'], lang, t['auction'])
     return html
 
 @app.route('/product/<int:product_id>')
@@ -241,60 +283,99 @@ def product(product_id):
     conn.close()
     
     if not product:
-        return TAILWIND + f'''
+        return TAILWIND + """
         <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
             <header class="flex justify-between items-center mb-8">
-              <h2 class="text-3xl font-bold text-red-500">{t['shop_title']}</h2>
+              <h2 class="text-3xl font-bold text-red-500">{}</h2>
               <div class="relative">
                 <select onchange="window.location.href='/shop?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
-                  <option value="ru" {"selected" if lang == "ru" else ""}>{t['russian']}</option>
-                  <option value="uz" {"selected" if lang == "uz" else ""}>{t['uzbek']}</option>
+                  <option value="ru" {}>{}</option>
+                  <option value="uz" {}>{}</option>
                 </select>
               </div>
             </header>
-            <div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{t['product_not_found']}</div>
-            <a href="/shop?lang={lang}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{t['return_to_shop']}</a>
+            <div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{}</div>
+            <a href="/shop?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{}</a>
         </div>
-        '''
+        """.format(
+            t['shop_title'],
+            'selected' if lang == 'ru' else '',
+            t['russian'],
+            'selected' if lang == 'uz' else '',
+            t['uzbek'],
+            t['product_not_found'],
+            lang,
+            t['return_to_shop']
+        )
     
-    float_text = f"{t['float']}: {product[7]:.4f}" if product[7] is not None and product[9] == 'weapon' else f"{t['float']}: {t['na']}"
-    ban_text = f"{t['trade_ban']}: {t['yes']}" if product[8] else f"{t['trade_ban']}: {t['no']}"
-    type_text = f"{t['type']}: {t['weapon']}" if product[9] == 'weapon' else f"{t['type']}: {t['agent']}"
-    img_html = f'<img src="/static/images/{product[6]}" class="w-full rounded-lg object-cover mb-4 shadow-md animate-fade-in" style="max-height:300px;" alt="{product[1]}">' if product[6] else ""
+    float_text = "{}: {:.4f}".format(t['float'], product[7]) if product[7] is not None and product[9] == 'weapon' else "{}: {}".format(t['float'], t['na'])
+    ban_text = "{}: {}".format(t['trade_ban'], t['yes'] if product[8] else t['no'])
+    type_text = "{}: {}".format(t['type'], t['weapon'] if product[9] == 'weapon' else t['agent'])
+    img_html = '<img src="/static/images/{}" class="w-full rounded-lg object-cover mb-4 shadow-md animate-fade-in" style="max-height:300px;" alt="{}">'.format(product[6], product[1]) if product[6] else ""
     product_link = f"https://csgosaller-1.onrender.com/product/{product[0]}"
     admin_url = f"https://t.me/{ADMIN_USERNAME}" if not ADMIN_USERNAME.startswith('+') else f"https://t.me/{ADMIN_USERNAME}"
     
-    html = TAILWIND + f'''
+    html = TAILWIND + """
     <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
         <header class="flex justify-between items-center mb-8">
-          <h2 class="text-3xl font-bold text-green-500">{t['product_id']}: {product[0]}</h2>
+          <h2 class="text-3xl font-bold text-green-500">{}: {}</h2>
           <div class="relative">
-            <select onchange="window.location.href='/product/{product[0]}?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-              <option value="ru" {"selected" if lang == "ru" else ""}>{t['russian']}</option>
-              <option value="uz" {"selected" if lang == "uz" else ""}>{t['uzbek']}</option>
+            <select onchange="window.location.href='/product/{}?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+              <option value="ru" {}>{}</option>
+              <option value="uz" {}>{}</option>
             </select>
           </div>
         </header>
         <div class="bg-gray-800 rounded-lg p-6 card shadow-lg hover:shadow-xl transition duration-300 animate-fade-in">
-            {img_html}
-            <h3 class="text-2xl font-bold text-green-500 mb-2">{product[1]}</h3>
-            <p class="text-gray-300 text-sm mb-2">{product[2]}</p>
-            <p class="text-gray-300 text-sm mb-2">{t['price']}: {product[3]}₽</p>
-            <p class="text-gray-300 text-sm mb-2">{t['quantity']}: {product[4]}</p>
-            <p class="text-gray-300 text-sm mb-2">{float_text}</p>
-            <p class="text-gray-300 text-sm mb-2">{ban_text}</p>
-            <p class="text-gray-300 text-sm mb-3">{type_text}</p>
-            <p class="text-gray-300 text-sm mb-3">{t['product_link']}: <a href="{product_link}" class="text-blue-500 hover:underline">{product_link}</a></p>
-            <p class="text-gray-300 text-sm mb-3">{t['send_to_admin']}</p>
-            <a href="{admin_url}" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 transform hover:scale-105 transition duration-300 btn text-center block text-sm">{t['contact_admin']}</a>
-            <a href="/shop?lang={lang}" class="bg-gray-800 text-white w-full py-2 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-2 text-sm text-center">{t['return_to_shop']}</a>
+            {}
+            <h3 class="text-2xl font-bold text-green-500 mb-2">{}</h3>
+            <p class="text-gray-300 text-sm mb-2">{}</p>
+            <p class="text-gray-300 text-sm mb-2">{}: {}₽</p>
+            <p class="text-gray-300 text-sm mb-2">{}: {}</p>
+            <p class="text-gray-300 text-sm mb-2">{}</p>
+            <p class="text-gray-300 text-sm mb-2">{}</p>
+            <p class="text-gray-300 text-sm mb-3">{}</p>
+            <p class="text-gray-300 text-sm mb-3">{}: <a href="{}" class="text-blue-500 hover:underline">{}</a></p>
+            <p class="text-gray-300 text-sm mb-3">{}</p>
+            <a href="{}" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 transform hover:scale-105 transition duration-300 btn text-center block text-sm">{}</a>
+            <a href="/shop?lang={}" class="bg-gray-800 text-white w-full py-2 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-2 text-sm text-center">{}</a>
         </div>
         <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-4 md:hidden">
-            <a href="/shop?lang={lang}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{t['shop']}</a>
-            <a href="/auction?lang={lang}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{t['auction']}</a>
+            <a href="/shop?lang={}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{}</a>
+            <a href="/auction?lang={}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{}</a>
         </div>
     </div>
-    '''
+    """.format(
+        t['product_id'],
+        product[0],
+        product[0],
+        'selected' if lang == 'ru' else '',
+        t['russian'],
+        'selected' if lang == 'uz' else '',
+        t['uzbek'],
+        img_html,
+        product[1],
+        product[2],
+        t['price'],
+        product[3],
+        t['quantity'],
+        product[4],
+        float_text,
+        ban_text,
+        type_text,
+        t['product_link'],
+        product_link,
+        product_link,
+        t['send_to_admin'],
+        admin_url,
+        t['contact_admin'],
+        lang,
+        t['return_to_shop'],
+        lang,
+        t['shop'],
+        lang,
+        t['auction']
+    )
     return html
 
 @app.route('/buy', methods=['POST'])
@@ -315,7 +396,29 @@ def buy():
         logging.info(f"Получен product_id: {product_id}, trade_link: {trade_link}, product_link: {product_link}")
         if not product_id:
             logging.error("product_id отсутствует в форме")
-            return TAILWIND + f'<div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen"><header class="flex justify-between items-center mb-8"><div></div><div class="relative"><select onchange="window.location.href=\'/shop?lang=\'+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"><option value="ru" {"selected" if lang == "ru" else ""}>{t["russian"]}</option><option value="uz" {"selected" if lang == "uz" else ""}>{t["uzbek"]}</option></select></div></header><div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{t["buy_error_no_id"]}</div><a href="/shop?lang={lang}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{t["back"]}</a></div>'
+            return TAILWIND + """
+            <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
+                <header class="flex justify-between items-center mb-8">
+                  <div></div>
+                  <div class="relative">
+                    <select onchange="window.location.href='/shop?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+                      <option value="ru" {}>{}</option>
+                      <option value="uz" {}>{}</option>
+                    </select>
+                  </div>
+                </header>
+                <div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{}</div>
+                <a href="/shop?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{}</a>
+            </div>
+            """.format(
+                'selected' if lang == 'ru' else '',
+                t['russian'],
+                'selected' if lang == 'uz' else '',
+                t['uzbek'],
+                t['buy_error_no_id'],
+                lang,
+                t['back']
+            )
         
         pid = int(product_id)
         conn = sqlite3.connect(DB_PATH)
@@ -327,7 +430,29 @@ def buy():
         if not prod:
             conn.close()
             logging.error(f"Товар недоступен: id={pid}, prod={prod}")
-            return TAILWIND + f'<div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen"><header class="flex justify-between items-center mb-8"><div></div><div class="relative"><select onchange="window.location.href=\'/shop?lang=\'+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"><option value="ru" {"selected" if lang == "ru" else ""}>{t["russian"]}</option><option value="uz" {"selected" if lang == "uz" else ""}>{t["uzbek"]}</option></select></div></header><div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{t["buy_error_unavailable"]}</div><a href="/shop?lang={lang}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{t["back"]}</a></div>'
+            return TAILWIND + """
+            <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
+                <header class="flex justify-between items-center mb-8">
+                  <div></div>
+                  <div class="relative">
+                    <select onchange="window.location.href='/shop?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+                      <option value="ru" {}>{}</option>
+                      <option value="uz" {}>{}</option>
+                    </select>
+                  </div>
+                </header>
+                <div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{}</div>
+                <a href="/shop?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{}</a>
+            </div>
+            """.format(
+                'selected' if lang == 'ru' else '',
+                t['russian'],
+                'selected' if lang == 'uz' else '',
+                t['uzbek'],
+                t['buy_error_unavailable'],
+                lang,
+                t['back']
+            )
         
         c.execute('UPDATE products SET quantity=quantity-1 WHERE id=?', (pid,))
         if prod[3] == 1:
@@ -358,13 +483,58 @@ def buy():
         loop.close()
         
         logging.info(f"Покупка успешна: {prod[0]}, {prod[2]}, {buyer}, {prod[1]}, {prod[3]}, Float: {prod[4]}, Trade Ban: {prod[5]}, Type: {prod[6]}")
-        return TAILWIND + f'<div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen"><header class="flex justify-between items-center mb-8"><div></div><div class="relative"><select onchange="window.location.href=\'/shop?lang=\'+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"><option value="ru" {"selected" if lang == "ru" else ""}>{t["russian"]}</option><option value="uz" {"selected" if lang == "uz" else ""}>{t["uzbek"]}</option></select></div></header><div class="bg-green-600 text-white p-4 rounded-lg shadow-lg">{t["buy_success"]}</div><a href="/?lang={lang}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{t["back"]}</a></div>'
+        return TAILWIND + """
+        <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
+            <header class="flex justify-between items-center mb-8">
+              <div></div>
+              <div class="relative">
+                <select onchange="window.location.href='/shop?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                  <option value="ru" {}>{}</option>
+                  <option value="uz" {}>{}</option>
+                </select>
+              </div>
+            </header>
+            <div class="bg-green-600 text-white p-4 rounded-lg shadow-lg">{}</div>
+            <a href="/?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{}</a>
+        </div>
+        """.format(
+            'selected' if lang == 'ru' else '',
+            t['russian'],
+            'selected' if lang == 'uz' else '',
+            t['uzbek'],
+            t['buy_success'],
+            lang,
+            t['back']
+        )
     
     except Exception as e:
         if 'conn' in locals():
             conn.close()
         logging.error(f"Ошибка в /buy: {str(e)}")
-        return TAILWIND + f'<div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen"><header class="flex justify-between items-center mb-8"><div></div><div class="relative"><select onchange="window.location.href=\'/shop?lang=\'+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"><option value="ru" {"selected" if lang == "ru" else ""}>{t["russian"]}</option><option value="uz" {"selected" if lang == "uz" else ""}>{t["uzbek"]}</option></select></div></header><div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{t["buy_error_unavailable"]}: {str(e)}</div><a href="/shop?lang={lang}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{t["back"]}</a></div>'
+        return TAILWIND + """
+        <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
+            <header class="flex justify-between items-center mb-8">
+              <div></div>
+              <div class="relative">
+                <select onchange="window.location.href='/shop?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+                  <option value="ru" {}>{}</option>
+                  <option value="uz" {}>{}</option>
+                </select>
+              </div>
+            </header>
+            <div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{}: {}</div>
+            <a href="/shop?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{}</a>
+        </div>
+        """.format(
+            'selected' if lang == 'ru' else '',
+            t['russian'],
+            'selected' if lang == 'uz' else '',
+            t['uzbek'],
+            t['buy_error_unavailable'],
+            str(e),
+            lang,
+            t['back']
+        )
 
 @app.route('/auction', methods=['GET'])
 def auction():
@@ -381,63 +551,113 @@ def auction():
         lots = c.fetchall()
         logging.info(f"Получено лотов: {len(lots)}")
         conn.close()
-        html = TAILWIND + f"""
+        html = TAILWIND + """
         <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
           <header class="flex justify-between items-center mb-8">
-            <h2 class="text-3xl font-bold text-blue-500">{t['auction_title']}</h2>
+            <h2 class="text-3xl font-bold text-blue-500">{}</h2>
             <div class="relative">
               <select onchange="window.location.href='/auction?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="ru" {"selected" if lang == "ru" else ""}>{t['russian']}</option>
-                <option value="uz" {"selected" if lang == "uz" else ""}>{t['uzbek']}</option>
+                <option value="ru" {}>{}</option>
+                <option value="uz" {}>{}</option>
               </select>
             </div>
           </header>
           <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-        """
+        """.format(
+            t['auction_title'],
+            'selected' if lang == 'ru' else '',
+            t['russian'],
+            'selected' if lang == 'uz' else '',
+            t['uzbek']
+        )
         for l in lots:
-            time_left = t['no_limit'] if l[4] is None else f"{max(0, l[4] - int(time.time()))//60} {t['time_left'].split(' ')[1]} {max(0, l[4] - int(time.time()))%60} {t['time_left'].split(' ')[3]}"
-            img_html = f'<img src="/static/images/{l[7]}" class="mb-4 w-full rounded-lg object-cover shadow-md animate-fade-in" style="max-height:180px;" alt="{l[1]}">' if l[7] else ""
-            float_text = f"{t['float']}: {l[8]:.4f}" if l[8] is not None and l[10] == 'weapon' else f"{t['float']}: {t['na']}"
-            ban_text = f"{t['trade_ban']}: {t['yes']}" if l[9] else f"{t['trade_ban']}: {t['no']}"
-            type_text = f"{t['type']}: {t['weapon']}" if l[10] == 'weapon' else f"{t['type']}: {t['agent']}"
-            html += f"""
+            time_left = t['no_limit'] if l[4] is None else "{} {} {} {}".format(max(0, l[4] - int(time.time()))//60, t['time_left'].split(' ')[1], max(0, l[4] - int(time.time()))%60, t['time_left'].split(' ')[3])
+            img_html = '<img src="/static/images/{}" class="mb-4 w-full rounded-lg object-cover shadow-md animate-fade-in" style="max-height:180px;" alt="{}">'.format(l[7], l[1]) if l[7] else ""
+            float_text = "{}: {:.4f}".format(t['float'], l[8]) if l[8] is not None and l[10] == 'weapon' else "{}: {}".format(t['float'], t['na'])
+            ban_text = "{}: {}".format(t['trade_ban'], t['yes'] if l[9] else t['no'])
+            type_text = "{}: {}".format(t['type'], t['weapon'] if l[10] == 'weapon' else t['agent'])
+            html += """
             <div class="bg-gray-800 rounded-lg p-4 card shadow-lg hover:shadow-xl transition duration-300 animate-fade-in">
-              {img_html}
-              <h5 class="text-xl font-bold text-blue-500 mb-2">{l[1]}</h5>
-              <p class="text-gray-300 text-sm mb-2">{l[2]}</p>
-              <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">{t['current_bid']}: {l[3]}₽</span></p>
-              <p class="mt-2"><span class="bg-gray-600 text-white px-2 py-1 rounded">{t['time_left']}: {time_left}</span></p>
-              <p class="mt-2 text-sm text-gray-400">{float_text} | {ban_text} | {type_text}</p>
+              {}
+              <h5 class="text-xl font-bold text-blue-500 mb-2">{}</h5>
+              <p class="text-gray-300 text-sm mb-2">{}</p>
+              <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">{}: {}₽</span></p>
+              <p class="mt-2"><span class="bg-gray-600 text-white px-2 py-1 rounded">{}: {}</span></p>
+              <p class="mt-2 text-sm text-gray-400">{} | {} | {}</p>
               <form method="post" action="/bid" class="mt-4">
-                <input type="hidden" name="lot_id" value="{l[0]}">
-                <input type="hidden" name="step" value="{l[5]}">
-                <input type="hidden" name="lang" value="{lang}">
-                <button type="submit" class="bg-yellow-500 text-black w-full py-2 rounded-lg hover:bg-yellow-600 transform hover:scale-105 transition duration-300 btn">{t['bid_step']}{l[5]}₽</button>
+                <input type="hidden" name="lot_id" value="{}">
+                <input type="hidden" name="step" value="{}">
+                <input type="hidden" name="lang" value="{}">
+                <button type="submit" class="bg-yellow-500 text-black w-full py-2 rounded-lg hover:bg-yellow-600 transform hover:scale-105 transition duration-300 btn">{} {}₽</button>
               </form>
               <form method="post" action="/bid_custom" class="mt-2">
-                <input type="hidden" name="lot_id" value="{l[0]}">
-                <input type="hidden" name="lang" value="{lang}">
-                <input type="number" name="amount" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600 mb-2" placeholder="{t['bid_placeholder']}" min="{l[3]+l[5]}" required>
-                <button type="submit" class="bg-blue-600 text-white w-full py-2 rounded-lg hover:bg-blue-700 transform hover:scale-105 transition duration-300 btn">{t['custom_bid']}</button>
+                <input type="hidden" name="lot_id" value="{}">
+                <input type="hidden" name="lang" value="{}">
+                <input type="number" name="amount" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600 mb-2" placeholder="{}" min="{}" required>
+                <button type="submit" class="bg-blue-600 text-white w-full py-2 rounded-lg hover:bg-blue-700 transform hover:scale-105 transition duration-300 btn">{}</button>
               </form>
             </div>
-            """
-        html += f"""
+            """.format(
+                img_html,
+                l[1],
+                l[2],
+                t['current_bid'],
+                l[3],
+                t['time_left'],
+                time_left,
+                float_text,
+                ban_text,
+                type_text,
+                l[0],
+                l[5],
+                lang,
+                t['bid_step'],
+                l[5],
+                l[0],
+                lang,
+                t['bid_placeholder'],
+                l[3]+l[5],
+                t['custom_bid']
+            )
+        html += """
           </div>
           <hr class="border-gray-700 my-8">
-          <a href="/?lang={lang}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn w-full text-center">{t['back']}</a>
+          <a href="/?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn w-full text-center">{}</a>
           <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-4 md:hidden">
-            <a href="/?lang={lang}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{t['home']}</a>
-            <a href="/shop?lang={lang}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{t['shop']}</a>
+            <a href="/?lang={}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{}</a>
+            <a href="/shop?lang={}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{}</a>
           </div>
         </div>
-        """
+        """.format(lang, t['back'], lang, t['home'], lang, t['shop'])
         return html
     except Exception as e:
         if 'conn' in locals():
             conn.close()
         logging.error(f"Ошибка в /auction: {str(e)}")
-        return TAILWIND + f'<div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen"><header class="flex justify-between items-center mb-8"><div></div><div class="relative"><select onchange="window.location.href=\'/auction?lang=\'+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"><option value="ru" {"selected" if lang == "ru" else ""}>{t["russian"]}</option><option value="uz" {"selected" if lang == "uz" else ""}>{t["uzbek"]}</option></select></div></header><div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{t["buy_error_unavailable"]}: {str(e)}</div><a href="/?lang={lang}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{t["back"]}</a></div>'
+        return TAILWIND + """
+        <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
+            <header class="flex justify-between items-center mb-8">
+              <div></div>
+              <div class="relative">
+                <select onchange="window.location.href='/auction?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+                  <option value="ru" {}>{}</option>
+                  <option value="uz" {}>{}</option>
+                </select>
+              </div>
+            </header>
+            <div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{}: {}</div>
+            <a href="/?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{}</a>
+        </div>
+        """.format(
+            'selected' if lang == 'ru' else '',
+            t['russian'],
+            'selected' if lang == 'uz' else '',
+            t['uzbek'],
+            t['buy_error_unavailable'],
+            str(e),
+            lang,
+            t['back']
+        )
 
 @app.route('/bid', methods=['POST'])
 def bid():
@@ -456,7 +676,29 @@ def bid():
     lot = c.fetchone()
     if not lot:
         conn.close()
-        return TAILWIND + f'<div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen"><header class="flex justify-between items-center mb-8"><div></div><div class="relative"><select onchange="window.location.href=\'/auction?lang=\'+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"><option value="ru" {"selected" if lang == "ru" else ""}>{t["russian"]}</option><option value="uz" {"selected" if lang == "uz" else ""}>{t["uzbek"]}</option></select></div></header><div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{t["lot_unavailable"]}</div><a href="/auction?lang={lang}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{t["back"]}</a></div>'
+        return TAILWIND + """
+        <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
+            <header class="flex justify-between items-center mb-8">
+              <div></div>
+              <div class="relative">
+                <select onchange="window.location.href='/auction?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+                  <option value="ru" {}>{}</option>
+                  <option value="uz" {}>{}</option>
+                </select>
+              </div>
+            </header>
+            <div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{}</div>
+            <a href="/auction?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{}</a>
+        </div>
+        """.format(
+            'selected' if lang == 'ru' else '',
+            t['russian'],
+            'selected' if lang == 'uz' else '',
+            t['uzbek'],
+            t['lot_unavailable'],
+            lang,
+            t['back']
+        )
     new_price = lot[0] + step
     c.execute('UPDATE lots SET current_price=? WHERE id=?', (new_price, lot_id))
     c.execute('INSERT INTO bids (lot_id, user_id, amount, time) VALUES (?, ?, ?, ?)', (lot_id, user_id, new_price, int(time.time())))
@@ -482,7 +724,29 @@ def bid_custom():
     lot = c.fetchone()
     if not lot or amount < lot[0] + lot[2]:
         conn.close()
-        return TAILWIND + f'<div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen"><header class="flex justify-between items-center mb-8"><div></div><div class="relative"><select onchange="window.location.href=\'/auction?lang=\'+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"><option value="ru" {"selected" if lang == "ru" else ""}>{t["russian"]}</option><option value="uz" {"selected" if lang == "uz" else ""}>{t["uzbek"]}</option></select></div></header><div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{t["bid_too_low"]}</div><a href="/auction?lang={lang}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{t["back"]}</a></div>'
+        return TAILWIND + """
+        <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
+            <header class="flex justify-between items-center mb-8">
+              <div></div>
+              <div class="relative">
+                <select onchange="window.location.href='/auction?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+                  <option value="ru" {}>{}</option>
+                  <option value="uz" {}>{}</option>
+                </select>
+              </div>
+            </header>
+            <div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{}</div>
+            <a href="/auction?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{}</a>
+        </div>
+        """.format(
+            'selected' if lang == 'ru' else '',
+            t['russian'],
+            'selected' if lang == 'uz' else '',
+            t['uzbek'],
+            t['bid_too_low'],
+            lang,
+            t['back']
+        )
     c.execute('UPDATE lots SET current_price=? WHERE id=?', (amount, lot_id))
     c.execute('INSERT INTO bids (lot_id, user_id, amount, time) VALUES (?, ?, ?, ?)', (lot_id, user_id, amount, int(time.time())))
     conn.commit()
