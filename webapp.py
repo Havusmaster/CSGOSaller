@@ -60,7 +60,9 @@ TRANSLATIONS = {
         'na': 'N/A',
         'language': 'Язык',
         'russian': 'Русский',
-        'uzbek': 'O‘zbek'
+        'uzbek': 'O‘zbek',
+        'select_language': 'Выберите язык',
+        'select_language_message': 'Пожалуйста, выберите язык для продолжения.'
     },
     'uz': {
         'title': 'CSGO Saller',
@@ -103,7 +105,9 @@ TRANSLATIONS = {
         'na': 'Mavjud emas',
         'language': 'Til',
         'russian': 'Ruscha',
-        'uzbek': 'O‘zbek'
+        'uzbek': 'O‘zbek',
+        'select_language': 'Tilni tanlang',
+        'select_language_message': 'Iltimos, davom etish uchun tilni tanlang.'
     }
 }
 
@@ -136,6 +140,7 @@ def index():
                 user_id = None
                 logging.error("Failed to parse user_id from query")
     t = TRANSLATIONS[lang]
+    show_welcome = request.args.get('show_welcome', 'false') == 'true'
     html = TAILWIND + """
     <div class="container mx-auto pt-12 pb-10 px-4 text-center bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
       <header class="flex justify-between items-center mb-8">
@@ -149,7 +154,7 @@ def index():
       </header>
       <p class="text-lg md:text-xl text-gray-300 mb-8 max-w-2xl mx-auto">{}</p>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 max-w-4xl mx-auto">
-        <button onclick="openModal('welcome', '{}', '{}', 0, 0, null, 0, 'welcome')" class="bg-orange-500 text-white font-semibold py-4 px-6 rounded-lg shadow-lg hover:bg-orange-600 transform hover:scale-105 transition duration-300 btn">{}</button>
+        <button onclick="openLanguageModal()" class="bg-orange-500 text-white font-semibold py-4 px-6 rounded-lg shadow-lg hover:bg-orange-600 transform hover:scale-105 transition duration-300 btn">{}</button>
         <a href="/shop?lang={}" class="bg-green-600 text-white font-semibold py-4 px-6 rounded-lg shadow-lg hover:bg-green-700 transform hover:scale-105 transition duration-300 btn">{}</a>
         <a href="/auction?lang={}" class="bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-lg hover:bg-blue-700 transform hover:scale-105 transition duration-300 btn">{}</a>
       </div>
@@ -159,8 +164,6 @@ def index():
         t['russian'],
         'selected' if lang == 'uz' else '',
         t['uzbek'],
-        t['welcome_message'],
-        t['welcome_title'],
         t['welcome_message'],
         t['start'],
         lang,
@@ -180,7 +183,21 @@ def index():
         <a href="/auction?lang={}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{}</a>
       </div>
     </div>
-    """.format(lang, t['home'], lang, t['shop'], lang, t['auction'])
+    <script>
+        // Automatically show welcome modal if show_welcome=true
+        window.addEventListener('DOMContentLoaded', () => {{
+            if ({}) {{
+                openModal('welcome', '{}', '{}', 0, 0, null, 0, 'welcome', '{}');
+            }}
+        }});
+    </script>
+    """.format(
+        lang, t['home'], lang, t['shop'], lang, t['auction'],
+        'true' if show_welcome else 'false',
+        t['welcome_title'],
+        t['welcome_message'],
+        lang
+    )
     return html
 
 @app.route('/shop')

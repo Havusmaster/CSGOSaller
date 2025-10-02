@@ -7,10 +7,43 @@ TAILWIND = """
     <title>CSGO Saller</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        function openModal(id, name, desc, price, qty, floatVal, tradeBan, type) {
-            const floatText = floatVal !== null && type === 'weapon' ? `Float: ${floatVal.toFixed(4)}` : type === 'welcome' ? '' : 'Float: N/A';
-            const banText = tradeBan && type !== 'welcome' ? 'Trade Ban: Да' : type !== 'welcome' ? 'Trade Ban: Нет' : '';
-            const typeText = type === 'weapon' ? 'Тип: Оружие' : type === 'agent' ? 'Тип: Агент' : '';
+        function openModal(id, name, desc, price, qty, floatVal, tradeBan, type, lang) {
+            const t = {
+                'ru': {
+                    'float': 'Float',
+                    'na': 'N/A',
+                    'trade_ban': 'Trade Ban',
+                    'yes': 'Да',
+                    'no': 'Нет',
+                    'type': 'Тип',
+                    'weapon': 'Оружие',
+                    'agent': 'Агент',
+                    'product_link': 'Ссылка на товар',
+                    'send_to_admin': 'Отправьте эту ссылку и вашу трейд-ссылку администратору в Telegram!',
+                    'contact_admin': 'Написать админу',
+                    'price': 'Цена',
+                    'quantity': 'Количество'
+                },
+                'uz': {
+                    'float': 'Float',
+                    'na': 'Mavjud emas',
+                    'trade_ban': 'Savdo taqiqlangan',
+                    'yes': 'Ha',
+                    'no': 'Yo‘q',
+                    'type': 'Turi',
+                    'weapon': 'Qurol',
+                    'agent': 'Agent',
+                    'product_link': 'Mahsulot havolasi',
+                    'send_to_admin': 'Ushbu havolani va savdo havolangizni Telegram orqali administratorga yuboring!',
+                    'contact_admin': 'Administratorga yozish',
+                    'price': 'Narx',
+                    'quantity': 'Soni'
+                }
+            };
+            const translations = t[lang] || t['ru'];
+            const floatText = floatVal !== null && type === 'weapon' ? `${translations['float']}: ${floatVal.toFixed(4)}` : type === 'welcome' ? '' : `${translations['float']}: ${translations['na']}`;
+            const banText = tradeBan && type !== 'welcome' ? `${translations['trade_ban']}: ${translations['yes']}` : type !== 'welcome' ? `${translations['trade_ban']}: ${translations['no']}` : '';
+            const typeText = type === 'weapon' ? `${translations['type']}: ${translations['weapon']}` : type === 'agent' ? `${translations['type']}: ${translations['agent']}` : '';
             const productLink = type !== 'welcome' ? `https://csgosaller-1.onrender.com/product/${id}` : '';
             const botUsername = '@UzSaler'; // Replace with actual bot username
             const modalContent = `
@@ -18,17 +51,33 @@ TAILWIND = """
                     <h3 class="text-xl font-bold text-green-500 mb-4">${name}</h3>
                     <p class="text-gray-300 text-sm mb-2">${desc}</p>
                     ${type !== 'welcome' ? `
-                    <p class="text-gray-300 text-sm mb-2">💰 Цена: ${price}₽</p>
-                    <p class="text-gray-300 text-sm mb-2">📦 Количество: ${qty}</p>
+                    <p class="text-gray-300 text-sm mb-2">💰 ${translations['price']}: ${price}₽</p>
+                    <p class="text-gray-300 text-sm mb-2">📦 ${translations['quantity']}: ${qty}</p>
                     <p class="text-gray-300 text-sm mb-2">${floatText}</p>
                     <p class="text-gray-300 text-sm mb-2">${banText}</p>
                     <p class="text-gray-300 text-sm mb-2">${typeText}</p>
-                    <p class="text-gray-300 text-sm mb-3">🔗 Ссылка на товар: <a href="${productLink}" class="text-blue-500 hover:underline">${productLink}</a></p>
-                    <p class="text-gray-300 text-sm mb-3">📋 Отправьте эту ссылку и вашу трейд-ссылку администратору в Telegram!</p>
+                    <p class="text-gray-300 text-sm mb-3">🔗 ${translations['product_link']}: <a href="${productLink}" class="text-blue-500 hover:underline">${productLink}</a></p>
+                    <p class="text-gray-300 text-sm mb-3">📋 ${translations['send_to_admin']}</p>
                     ` : ''}
                     <div class="flex flex-col gap-2">
-                        ${type !== 'welcome' ? `<a href="https://t.me/${botUsername}" class="bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 text-center">📩 Написать админу</a>` : ''}
-                        <button onclick="document.getElementById('modal').style.display='none'" class="bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700">${type === 'welcome' ? 'Закрыть' : 'Закрыть'}</button>
+                        ${type !== 'welcome' ? `<a href="https://t.me/${botUsername}" class="bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 text-center">${translations['contact_admin']}</a>` : ''}
+                        <button onclick="document.getElementById('modal').style.display='none'" class="bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700">${lang === 'ru' ? 'Закрыть' : 'Yopish'}</button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('modalContent').innerHTML = modalContent;
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function openLanguageModal() {
+            const modalContent = `
+                <div class="bg-gray-800 p-6 rounded-lg max-w-md w-full animate-fade-in">
+                    <h3 class="text-xl font-bold text-orange-500 mb-4">${window.location.search.includes('lang=uz') ? 'Tilni tanlang' : 'Выберите язык'}</h3>
+                    <p class="text-gray-300 text-sm mb-4">${window.location.search.includes('lang=uz') ? 'Iltimos, davom etish uchun tilni tanlang.' : 'Пожалуйста, выберите язык для продолжения.'}</p>
+                    <div class="flex flex-col gap-2">
+                        <button onclick="window.location.href='/?lang=ru&show_welcome=true'" class="bg-orange-500 text-white py-2 rounded-lg hover:bg-orange-600 transform hover:scale-105 transition duration-300">Русский</button>
+                        <button onclick="window.location.href='/?lang=uz&show_welcome=true'" class="bg-orange-500 text-white py-2 rounded-lg hover:bg-orange-600 transform hover:scale-105 transition duration-300">O‘zbek</button>
+                        <button onclick="document.getElementById('modal').style.display='none'" class="bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700">${window.location.search.includes('lang=uz') ? 'Yopish' : 'Закрыть'}</button>
                     </div>
                 </div>
             `;
