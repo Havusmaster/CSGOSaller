@@ -1,14 +1,14 @@
 import os
 import logging
 from aiogram import Bot, Dispatcher, types
-from aiogram.fsm.storage.memory import MemoryStorage  # Updated import
+from aiogram.fsm.storage.memory import MemoryStorage
 from config import BOT_TOKEN, BOT_USERNAME
 
 logging.basicConfig(filename="bot.log", level=logging.INFO, format="%(asctime)s %(message)s")
 
 bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
-dp = Dispatcher(bot, storage=storage)
+dp = Dispatcher(bot=bot, storage=storage)  # Fixed Dispatcher initialization
 
 async def notify_admins_product(product_id, product_name, description, price, quantity, float_value, trade_ban, product_type, user_id, trade_link, product_link):
     message = (
