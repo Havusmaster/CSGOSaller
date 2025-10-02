@@ -8,15 +8,16 @@ TAILWIND = """
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         function openModal(id, name, desc, price, qty, floatVal, tradeBan, type) {
-            const floatText = floatVal !== null && type === 'weapon' ? `Float: ${floatVal.toFixed(4)}` : 'Float: N/A';
-            const banText = tradeBan ? 'Trade Ban: Да' : 'Trade Ban: Нет';
-            const typeText = type === 'weapon' ? 'Тип: Оружие' : 'Тип: Агент';
-            const productLink = `https://csgosaller-1.onrender.com/product/${id}`;
+            const floatText = floatVal !== null && type === 'weapon' ? `Float: ${floatVal.toFixed(4)}` : type === 'welcome' ? '' : 'Float: N/A';
+            const banText = tradeBan && type !== 'welcome' ? 'Trade Ban: Да' : type !== 'welcome' ? 'Trade Ban: Нет' : '';
+            const typeText = type === 'weapon' ? 'Тип: Оружие' : type === 'agent' ? 'Тип: Агент' : '';
+            const productLink = type !== 'welcome' ? `https://csgosaller-1.onrender.com/product/${id}` : '';
             const botUsername = '@UzSaler'; // Replace with actual bot username
             const modalContent = `
-                <div class="bg-gray-800 p-6 rounded-lg max-w-md w-full">
+                <div class="bg-gray-800 p-6 rounded-lg max-w-md w-full animate-fade-in">
                     <h3 class="text-xl font-bold text-green-500 mb-4">${name}</h3>
                     <p class="text-gray-300 text-sm mb-2">${desc}</p>
+                    ${type !== 'welcome' ? `
                     <p class="text-gray-300 text-sm mb-2">💰 Цена: ${price}₽</p>
                     <p class="text-gray-300 text-sm mb-2">📦 Количество: ${qty}</p>
                     <p class="text-gray-300 text-sm mb-2">${floatText}</p>
@@ -24,9 +25,10 @@ TAILWIND = """
                     <p class="text-gray-300 text-sm mb-2">${typeText}</p>
                     <p class="text-gray-300 text-sm mb-3">🔗 Ссылка на товар: <a href="${productLink}" class="text-blue-500 hover:underline">${productLink}</a></p>
                     <p class="text-gray-300 text-sm mb-3">📋 Отправьте эту ссылку и вашу трейд-ссылку администратору в Telegram!</p>
+                    ` : ''}
                     <div class="flex flex-col gap-2">
-                        <a href="https://t.me/${botUsername}" class="bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 text-center">📩 Написать админу</a>
-                        <button onclick="document.getElementById('modal').style.display='none'" class="bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700">Закрыть</button>
+                        ${type !== 'welcome' ? `<a href="https://t.me/${botUsername}" class="bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 text-center">📩 Написать админу</a>` : ''}
+                        <button onclick="document.getElementById('modal').style.display='none'" class="bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700">${type === 'welcome' ? 'Закрыть' : 'Закрыть'}</button>
                     </div>
                 </div>
             `;
@@ -80,7 +82,14 @@ TAILWIND = """
             transform: scale(1.03);
         }
         .btn {
-            transition: background-color 0.2s;
+            transition: background-color 0.2s, transform 0.2s;
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
