@@ -27,7 +27,6 @@ TRANSLATIONS = {
         'shop': '🛒 Магазин',
         'auction': '🏆 Аукцион',
         'admin_panel': '🔑 Админ-панель',
-        'start': '🚀 Начать',
         'back': '⬅️ Назад',
         'shop_title': 'Магазин',
         'product_not_found': 'Товар не найден.',
@@ -60,9 +59,7 @@ TRANSLATIONS = {
         'na': 'N/A',
         'language': 'Язык',
         'russian': 'Русский',
-        'uzbek': 'O‘zbek',
-        'select_language': 'Выберите язык',
-        'select_language_message': 'Пожалуйста, выберите язык для продолжения.'
+        'uzbek': 'O‘zbek'
     },
     'uz': {
         'title': 'CSGO Saller',
@@ -72,7 +69,6 @@ TRANSLATIONS = {
         'shop': '🛒 Do‘kon',
         'auction': '🏆 Auktsion',
         'admin_panel': '🔑 Admin paneli',
-        'start': '🚀 Boshlash',
         'back': '⬅️ Orqaga',
         'shop_title': 'Do‘kon',
         'product_not_found': 'Mahsulot topilmadi.',
@@ -105,9 +101,7 @@ TRANSLATIONS = {
         'na': 'Mavjud emas',
         'language': 'Til',
         'russian': 'Ruscha',
-        'uzbek': 'O‘zbek',
-        'select_language': 'Tilni tanlang',
-        'select_language_message': 'Iltimos, davom etish uchun tilni tanlang.'
+        'uzbek': 'O‘zbek'
     }
 }
 
@@ -153,8 +147,7 @@ def index():
         </div>
       </header>
       <p class="text-lg md:text-xl text-gray-300 mb-8 max-w-2xl mx-auto">{}</p>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 max-w-4xl mx-auto">
-        <button onclick="openLanguageModal()" class="bg-orange-500 text-white font-semibold py-4 px-6 rounded-lg shadow-lg hover:bg-orange-600 transform hover:scale-105 transition duration-300 btn">{}</button>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10 max-w-4xl mx-auto">
         <a href="/shop?lang={}" class="bg-green-600 text-white font-semibold py-4 px-6 rounded-lg shadow-lg hover:bg-green-700 transform hover:scale-105 transition duration-300 btn">{}</a>
         <a href="/auction?lang={}" class="bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-lg hover:bg-blue-700 transform hover:scale-105 transition duration-300 btn">{}</a>
       </div>
@@ -165,7 +158,6 @@ def index():
         'selected' if lang == 'uz' else '',
         t['uzbek'],
         t['welcome_message'],
-        t['start'],
         lang,
         t['shop'],
         lang,
@@ -247,7 +239,7 @@ def shop():
           <p class="text-sm text-gray-400 mb-2">{}: {}</p>
           <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">{}: {}₽</span> <span class="bg-blue-500 text-white px-2 py-1 rounded ml-2">{}: {}</span></p>
           <p class="mt-2 text-sm text-gray-400">{} | {} | {}</p>
-          <button onclick="openModal({}, '{}', '{}', {}, {}, {}, {}, '{}')" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 transform hover:scale-105 transition duration-300 btn mt-4 text-sm">{}</button>
+          <button onclick="openModal({}, '{}', '{}', {}, {}, {}, {}, '{}', '{}')" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 transform hover:scale-105 transition duration-300 btn mt-4 text-sm">{}</button>
         </div>
         """.format(
             img_html,
@@ -270,6 +262,7 @@ def shop():
             p[7] if p[7] is not None else 'null',
             p[8],
             p[9],
+            lang,
             t['contact_admin']
         )
     html += """

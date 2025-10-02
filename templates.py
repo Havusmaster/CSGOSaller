@@ -69,22 +69,6 @@ TAILWIND = """
             document.getElementById('modal').style.display = 'flex';
         }
 
-        function openLanguageModal() {
-            const modalContent = `
-                <div class="bg-gray-800 p-6 rounded-lg max-w-md w-full animate-fade-in">
-                    <h3 class="text-xl font-bold text-orange-500 mb-4">${window.location.search.includes('lang=uz') ? 'Tilni tanlang' : 'Выберите язык'}</h3>
-                    <p class="text-gray-300 text-sm mb-4">${window.location.search.includes('lang=uz') ? 'Iltimos, davom etish uchun tilni tanlang.' : 'Пожалуйста, выберите язык для продолжения.'}</p>
-                    <div class="flex flex-col gap-2">
-                        <button onclick="window.location.href='/?lang=ru&show_welcome=true'" class="bg-orange-500 text-white py-2 rounded-lg hover:bg-orange-600 transform hover:scale-105 transition duration-300">Русский</button>
-                        <button onclick="window.location.href='/?lang=uz&show_welcome=true'" class="bg-orange-500 text-white py-2 rounded-lg hover:bg-orange-600 transform hover:scale-105 transition duration-300">O‘zbek</button>
-                        <button onclick="document.getElementById('modal').style.display='none'" class="bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700">${window.location.search.includes('lang=uz') ? 'Yopish' : 'Закрыть'}</button>
-                    </div>
-                </div>
-            `;
-            document.getElementById('modalContent').innerHTML = modalContent;
-            document.getElementById('modal').style.display = 'flex';
-        }
-
         function searchItems(tableId) {
             const input = document.getElementById('searchInput').value.toLowerCase();
             const table = document.getElementById(tableId);
