@@ -45,7 +45,7 @@ async def notify_admins_auction(lot_id, lot_name, description, current_price, st
     )
     await bot.send_message(chat_id=user_id, text=message)
 
-@dp.message(Command("start"))
+@dp.message(Command("/start"))
 async def start_command(message: types.Message):
     user_id = message.from_user.id
     # Default to Russian; could be enhanced to detect user language from Telegram
