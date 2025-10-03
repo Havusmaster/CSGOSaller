@@ -3,6 +3,7 @@ import logging
 from aiogram import Bot, Dispatcher, types
 from aiogram.fsm.storage.memory import MemoryStorage
 from config import BOT_TOKEN, BOT_USERNAME
+from aiogram.filters import Command
 
 logging.basicConfig(filename="bot.log", level=logging.INFO, format="%(asctime)s %(message)s")
 
@@ -27,7 +28,7 @@ async def notify_admins_product(product_id, product_name, description, price, qu
     )
     await bot.send_message(chat_id=user_id, text=message)
 
-@dp.message('/start')  # Updated handler registration
+@dp.message(Command("start"))  # Updated handler registration
 async def start_command(message: types.Message):
     user_id = message.from_user.id
     # Default to Russian; could be enhanced to detect user language from Telegram
