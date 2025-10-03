@@ -1,14 +1,15 @@
 import os
 import logging
 from aiogram import Bot, Dispatcher, types
-from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.filters import Command
 from config import BOT_TOKEN, BOT_USERNAME
 
 logging.basicConfig(filename="bot.log", level=logging.INFO, format="%(asctime)s %(message)s")
 
 bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
-dp = Dispatcher(bot, storage=storage)
+dp = Dispatcher(bot=bot, storage=storage)
 
 async def notify_admins_product(product_id, product_name, description, price, quantity, float_value, trade_ban, product_type, user_id, trade_link, product_link):
     message = (
@@ -27,7 +28,24 @@ async def notify_admins_product(product_id, product_name, description, price, qu
     )
     await bot.send_message(chat_id=user_id, text=message)
 
-@dp.message_handler(commands=['start'])
+async def notify_admins_auction(lot_id, lot_name, description, current_price, step, end_time, float_value, trade_ban, product_type, user_id, product_link):
+    message = (
+        f"New auction bid!\n"
+        f"Lot ID: {lot_id}\n"
+        f"Name: {lot_name}\n"
+        f"Description: {description}\n"
+        f"Current Price: {current_price}₽\n"
+        f"Step: {step}₽\n"
+        f"End Time: {end_time if end_time else 'No limit'}\n"
+        f"Float: {float_value if float_value is not None else 'N/A'}\n"
+        f"Trade Ban: {'Yes' if trade_ban else 'No'}\n"
+        f"Type: {product_type}\n"
+        f"User ID: {user_id}\n"
+        f"Product Link: {product_link}"
+    )
+    await bot.send_message(chat_id=user_id, text=message)
+
+@dp.message(Command("start"))
 async def start_command(message: types.Message):
     user_id = message.from_user.id
     # Default to Russian; could be enhanced to detect user language from Telegram
