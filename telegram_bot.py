@@ -3,13 +3,14 @@ import logging
 from aiogram import Bot, Dispatcher, types
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.filters import Command
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from config import BOT_TOKEN, BOT_USERNAME
 
 logging.basicConfig(filename="bot.log", level=logging.INFO, format="%(asctime)s %(message)s")
 
 bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
-dp = Dispatcher(storage=storage)
+dp = Dispatcher(bot=bot, storage=storage)
 
 async def notify_admins_product(product_id, product_name, description, price, quantity, float_value, trade_ban, product_type, user_id, trade_link, product_link):
     message = (
@@ -48,28 +49,31 @@ async def notify_admins_auction(lot_id, lot_name, description, current_price, st
 @dp.message(Command("start"))
 async def start_command(message: types.Message):
     user_id = message.from_user.id
-    # Default to Russian; could be enhanced to detect user language from Telegram
-    lang = 'ru'
-    # Check if user prefers Uzbek (e.g., based on Telegram language or stored preference)
-    if message.from_user.language_code == 'uz':
-        lang = 'uz'
-    welcome_url = f"https://csgosaller-1.onrender.com/?user_id={user_id}&lang={lang}&show_welcome=true"
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Русский", callback_data="lang_ru")],
+        [InlineKeyboardButton(text="O‘zbek", callback_data="lang_uz")]
+    ])
+    await message.reply("Выберите язык / Tilni tanlang:", reply_markup=keyboard)
+
+@dp.callback_query(lambda query: query.data.startswith('lang_'))
+async def handle_language_choice(callback: types.CallbackQuery):
+    lang = callback.data.split('_')[1]
+    user_id = callback.from_user.id
+    welcome_url = f"https://csgosaller-1.onrender.com/shop?user_id={user_id}&lang={lang}&show_welcome=true"
     welcome_message = (
         "Добро пожаловать в CSGO Saller!" if lang == 'ru' else
         "CSGO Saller’ga xush kelibsiz!"
     )
-    await message.reply(
-        f"{welcome_message}\n"
-        f"Посетите наш сайт для покупки скинов и участия в аукционах:\n"
-        f"{welcome_url}",
-        disable_web_page_preview=True
-    )
-    logging.info(f"Sent /start response to user {user_id} with lang={lang}")
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Открыть магазин / Do‘konni ochish", url=welcome_url)]
+    ])
+    await callback.message.edit_text(welcome_message, reply_markup=keyboard)
+    logging.info(f"User {user_id} selected lang {lang} and received welcome URL")
 
 async def run_bot():
     try:
         logging.info("Starting bot polling...")
-        await dp.start_polling(bot)
+        await dp.start_polling()
     except Exception as e:
         logging.error(f"Bot polling failed: {e}")
         raise
