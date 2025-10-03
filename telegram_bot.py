@@ -7,7 +7,12 @@ from config import BOT_TOKEN, BOT_USERNAME
 
 logging.basicConfig(filename="bot.log", level=logging.INFO, format="%(asctime)s %(message)s")
 
-bot = Bot(token=BOT_TOKEN)
+try:
+    bot = Bot(token=BOT_TOKEN)
+except Exception as e:
+    logging.error(f"Failed to initialize Bot: {e}")
+    raise
+
 storage = MemoryStorage()
 dp = Dispatcher(bot=bot, storage=storage)
 
@@ -68,8 +73,13 @@ async def start_command(message: types.Message):
 
 async def run_bot():
     try:
+        logging.info("Starting bot polling...")
         await dp.start_polling()
+    except Exception as e:
+        logging.error(f"Bot polling failed: {e}")
+        raise
     finally:
+        logging.info("Closing bot storage and session...")
         await dp.storage.close()
         await bot.session.close()
 
