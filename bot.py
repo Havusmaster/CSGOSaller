@@ -1,15 +1,20 @@
-import os
-import multiprocessing
+import asyncio
+import threading
 from telegram_bot import run_bot
 from webapp import app
-from admin_routes import *
-from database import init_db
+
+def run_flask():
+    """Run the Flask web app in a separate thread."""
+    app.run(host='0.0.0.0', port=5000)
+
+async def main():
+    """Run the Telegram bot and Flask web app concurrently."""
+    # Start Flask in a separate thread
+    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread.start()
+    
+    # Start the Telegram bot
+    await run_bot()
 
 if __name__ == '__main__':
-    init_db()
-    def start_bot():
-        run_bot()
-
-    bot_process = multiprocessing.Process(target=start_bot)
-    bot_process.start()
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    asyncio.run(main())
