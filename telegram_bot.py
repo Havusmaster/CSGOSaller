@@ -7,14 +7,9 @@ from config import BOT_TOKEN, BOT_USERNAME
 
 logging.basicConfig(filename="bot.log", level=logging.INFO, format="%(asctime)s %(message)s")
 
-try:
-    bot = Bot(token=BOT_TOKEN)
-except Exception as e:
-    logging.error(f"Failed to initialize Bot: {e}")
-    raise
-
+bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
-dp = Dispatcher(bot=bot, storage=storage)
+dp = Dispatcher(storage=storage)
 
 async def notify_admins_product(product_id, product_name, description, price, quantity, float_value, trade_ban, product_type, user_id, trade_link, product_link):
     message = (
@@ -74,7 +69,7 @@ async def start_command(message: types.Message):
 async def run_bot():
     try:
         logging.info("Starting bot polling...")
-        await dp.start_polling()
+        await dp.start_polling(bot)
     except Exception as e:
         logging.error(f"Bot polling failed: {e}")
         raise
