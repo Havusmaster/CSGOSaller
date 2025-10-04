@@ -56,7 +56,7 @@ async def start_command(message: types.Message):
     welcome_url = f"https://csgosaller-1.onrender.com/?user_id={user_id}&lang={lang}&show_welcome=true"
     welcome_message = (
         "Добро пожаловать в CSGO Saller!" if lang == 'ru' else
-        "CSGO Saller’ga xush kelibsiz!"
+        "CSGO Saller'ga xush kelibsiz!"
     )
     await message.reply(
         f"{welcome_message}\n"
@@ -68,8 +68,13 @@ async def start_command(message: types.Message):
 
 async def run_bot():
     try:
+        logging.info("Starting bot polling...")
         await dp.start_polling(bot)
+    except Exception as e:
+        logging.error(f"Bot polling failed: {e}")
+        raise
     finally:
+        logging.info("Closing bot storage and session...")
         await dp.storage.close()
         await bot.session.close()
 
