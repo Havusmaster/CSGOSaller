@@ -1,3 +1,4 @@
+
 import os
 import logging
 from aiogram import Bot, Dispatcher, types
@@ -14,8 +15,7 @@ except Exception as e:
     logging.error(f"Failed to initialize Bot: {e}")
     raise
 
-dp = Dispatcher()
-dp.storage = MemoryStorage()
+dp = Dispatcher(storage=MemoryStorage())
 
 async def notify_admins_product(product_id, product_name, description, price, quantity, float_value, trade_ban, product_type, user_id, trade_link, product_link):
     message = (
