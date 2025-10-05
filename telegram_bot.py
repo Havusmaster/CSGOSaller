@@ -55,10 +55,9 @@ async def debug_all(message: types.Message):
     print("Получено сообщение:", message.text)
 
 
-# Запуск бота
-async def main():
-    print("✅ Бот запущен и ждёт сообщений...")
-    await dp.start_polling(bot)
-
-if __name__ == "__main__":
-    asyncio.run(main())
+async def run_bot():
+    logging.info("🚀 Бот запущен...")
+    try:
+        await dp.start_polling(bot)
+    except Exception as e:
+        logging.error(f"Ошибка при запуске бота: {e}")
