@@ -8,15 +8,15 @@ from aiogram.types import (
 )
 from config import BOT_TOKEN
 
-# Настройки логирования
+# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
-# Инициализация бота
+# Инициализация бота и диспетчера
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 
-# /start команда — показывает кнопку “🚀 Start”
+# /start — показывает кнопку “🚀 Start”
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     keyboard = ReplyKeyboardMarkup(
@@ -34,10 +34,12 @@ async def cmd_start(message: types.Message):
 # Обработка нажатия кнопки “🚀 Start”
 @dp.message(F.text == "🚀 Start")
 async def handle_start_button(message: types.Message):
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Русский 🇷🇺", callback_data="lang_ru")],
-        [InlineKeyboardButton(text="O'zbek 🇺🇿", callback_data="lang_uz")]
-    ])
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Русский 🇷🇺", callback_data="lang_ru")],
+            [InlineKeyboardButton(text="O'zbek 🇺🇿", callback_data="lang_uz")]
+        ]
+    )
     await message.answer("Выберите язык / Tilni tanlang:", reply_markup=keyboard)
 
 
@@ -47,16 +49,25 @@ async def lang_ru(callback: types.CallbackQuery):
     await callback.message.answer("Вы выбрали 🇷🇺 Русский язык!")
     await callback.answer()
 
+
 @dp.callback_query(F.data == "lang_uz")
 async def lang_uz(callback: types.CallbackQuery):
     await callback.message.answer("Siz 🇺🇿 O'zbek tilini tanladingiz!")
     await callback.answer()
 
 
-# Функция для запуска бота
+# 🚀 Основная функция запуска
 async def run_bot():
-    logging.info("🚀 Бот запущен...")
+    logging.info("🚀 Запуск Telegram-бота...")
+
     try:
+        # Удаляем возможный webhook и очищаем старые апдейты
+        await bot.delete_webhook(drop_pending_updates=True)
+        logging.info("✅ Webhook отключён и старые апдейты очищены.")
+
+        # Запускаем polling
         await dp.start_polling(bot)
     except Exception as e:
-        logging.error(f"Ошибка при запуске бота: {e}")
+        logging.error(f"❌ Ошибка при запуске бота: {e}")
+    finally:
+        await bot.session.close()
