@@ -1,35 +1,39 @@
 import asyncio
+import logging
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import (
-    InlineKeyboardMarkup, InlineKeyboardButton,
-    ReplyKeyboardMarkup, KeyboardButton
+    ReplyKeyboardMarkup, KeyboardButton,
+    InlineKeyboardMarkup, InlineKeyboardButton
 )
-from aiogram.enums import ParseMode
-import logging
-from config import BOT_TOKEN  # В config.py должен быть токен бота
+from config import BOT_TOKEN
 
-# Включаем логирование, чтобы видеть ошибки
+# Настройки логирования
 logging.basicConfig(level=logging.INFO)
 
-bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
+# Инициализация бота
+bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 
-# Команда /start — показывает кнопку 🚀 Start
+# /start команда — показывает кнопку “🚀 Start”
 @dp.message(Command("start"))
-async def start_command(message: types.Message):
-    keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(KeyboardButton("🚀 Start"))
+async def cmd_start(message: types.Message):
+    keyboard = ReplyKeyboardMarkup(
+        resize_keyboard=True,
+        keyboard=[
+            [KeyboardButton(text="🚀 Start")]
+        ]
+    )
     await message.answer(
-        "Добро пожаловать! 👋\n\nНажмите кнопку 🚀 Start, чтобы открыть меню.",
+        "Добро пожаловать! 👋\n\nНажмите кнопку 🚀 Start, чтобы продолжить.",
         reply_markup=keyboard
     )
 
 
-# Обработка нажатия кнопки 🚀 Start
+# Обработка нажатия кнопки “🚀 Start”
 @dp.message(F.text == "🚀 Start")
-async def start_button(message: types.Message):
+async def handle_start_button(message: types.Message):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Русский 🇷🇺", callback_data="lang_ru")],
         [InlineKeyboardButton(text="O'zbek 🇺🇿", callback_data="lang_uz")]
@@ -49,12 +53,7 @@ async def lang_uz(callback: types.CallbackQuery):
     await callback.answer()
 
 
-# Тестовый хэндлер — чтобы видеть, что бот получает
-@dp.message()
-async def debug_all(message: types.Message):
-    print("Получено сообщение:", message.text)
-
-
+# Функция для запуска бота
 async def run_bot():
     logging.info("🚀 Бот запущен...")
     try:
