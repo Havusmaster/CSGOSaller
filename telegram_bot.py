@@ -12,6 +12,45 @@ logging.basicConfig(filename="bot.log", level=logging.INFO, format="%(asctime)s 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
+# --- Уведомления админам ---
+async def notify_admins_product(product_id, product_name, description, price, quantity, float_value, trade_ban, product_type, user_id, trade_link, product_link):
+    """Отправка уведомления администратору о покупке"""
+    message = (
+        f"🛒 Новая покупка!\n\n"
+        f"🆔 ID: {product_id}\n"
+        f"📦 Название: {product_name}\n"
+        f"📃 Описание: {description}\n"
+        f"💰 Цена: {price}₽\n"
+        f"🔢 Кол-во: {quantity}\n"
+        f"🎯 Float: {float_value if float_value else 'N/A'}\n"
+        f"🚫 Trade Ban: {'Да' if trade_ban else 'Нет'}\n"
+        f"🔖 Тип: {product_type}\n"
+        f"👤 Пользователь ID: {user_id}\n"
+        f"🔗 Trade Link: {trade_link}\n"
+        f"🖇️ Product Link: {product_link}"
+    )
+    await bot.send_message(chat_id=user_id, text=message)
+
+
+async def notify_admins_auction(lot_id, lot_name, description, current_price, step, end_time, float_value, trade_ban, product_type, user_id, product_link):
+    """Отправка уведомления о ставке на аукцион"""
+    message = (
+        f"🏷️ Новая ставка на аукцион!\n\n"
+        f"🆔 Лот: {lot_id}\n"
+        f"📦 Название: {lot_name}\n"
+        f"📃 Описание: {description}\n"
+        f"💰 Текущая цена: {current_price}₽\n"
+        f"➕ Шаг: {step}₽\n"
+        f"⏰ Конец: {end_time if end_time else 'Без лимита'}\n"
+        f"🎯 Float: {float_value if float_value else 'N/A'}\n"
+        f"🚫 Trade Ban: {'Да' if trade_ban else 'Нет'}\n"
+        f"🔖 Тип: {product_type}\n"
+        f"👤 Пользователь ID: {user_id}\n"
+        f"🖇️ Product Link: {product_link}"
+    )
+    await bot.send_message(chat_id=user_id, text=message)
+
+
 # --- Команда /start ---
 @dp.message(Command("start"))
 async def start_command(message: types.Message):
@@ -29,10 +68,8 @@ async def handle_language_choice(callback: types.CallbackQuery):
     lang = callback.data.split('_')[1]
     user_id = callback.from_user.id
 
-    # URL магазина (WebApp)
     shop_url = f"https://csgosaller-1.onrender.com/shop?user_id={user_id}&lang={lang}"
 
-    # Текст приветствия
     welcome_text = (
         "👋 Добро пожаловать в *CSGO Saller!*\n\n"
         "Здесь вы можете купить скины, участвовать в аукционах и отслеживать свои покупки.\n\n"
@@ -43,7 +80,6 @@ async def handle_language_choice(callback: types.CallbackQuery):
         "👇 Do'konni ochish uchun quyidagi tugmani bosing."
     )
 
-    # Кнопка WebApp
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🛒 Открыть магазин / Do'konni ochish", web_app=WebAppInfo(url=shop_url))]
     ])
@@ -52,9 +88,9 @@ async def handle_language_choice(callback: types.CallbackQuery):
     logging.info(f"User {user_id} selected language {lang} and opened shop WebApp")
 
 
-# --- Функция запуска бота ---
+# --- Запуск бота ---
 async def run_bot():
-    """Функция запускается из bot.py в отдельном потоке"""
+    """Функция, запускаемая из bot.py"""
     try:
         logging.info("Starting bot polling...")
         await dp.start_polling(bot)
