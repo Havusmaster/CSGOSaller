@@ -5,7 +5,7 @@ from flask import Flask, render_template_string, request, redirect, url_for, ses
 from templates import TAILWIND
 from config import ADMIN_IDS, BOT_USERNAME, ADMIN_USERNAME
 from database import DB_PATH
-from telegram_bot import notify_admins_product, bot
+from telegram_bot import bot
 import asyncio
 import time
 
