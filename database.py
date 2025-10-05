@@ -1,9 +1,12 @@
 import sqlite3
 import os
 
-DB_PATH = os.getenv('DB_PATH', '/app/data/database.db')  # Изменено на persistent путь для Render
+DB_PATH = os.getenv('DB_PATH', '/app/data/database.db')  # Persistent путь для Render
 
 def init_db():
+    # Добавлено: Создаём директорию для db, если её нет (фикс ошибки unable to open database file)
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     
