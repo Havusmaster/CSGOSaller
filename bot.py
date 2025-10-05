@@ -3,7 +3,7 @@ import threading
 import asyncio
 from webapp import app
 from telegram_bot import run_bot
-
+from database import init_db  # Добавлено: импорт функции init_db
 
 def run_bot_thread():
     """Запуск Telegram-бота в отдельном потоке с новой event loop."""
@@ -16,9 +16,10 @@ def run_bot_thread():
     finally:
         loop.close()
 
-
 if __name__ == '__main__':
     print("[INFO] Запуск Telegram-бота и веб-сервера...")
+
+    init_db()  # Добавлено: инициализация db перед всем (создаст таблицы, если нет)
 
     # Запускаем бота в отдельном потоке
     bot_thread = threading.Thread(target=run_bot_thread, daemon=True)

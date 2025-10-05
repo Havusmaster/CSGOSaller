@@ -12,3 +12,7 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11
+    disks:  # Новый блок для persistent storage (чтобы db не сбрасывалась)
+      - name: data
+        mountPath: /app/data  # Папка для db, сохранится между деплойями
+        sizeGB: 1

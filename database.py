@@ -1,7 +1,7 @@
 import sqlite3
 import os
 
-DB_PATH = os.getenv('DB_PATH', 'database.db')
+DB_PATH = os.getenv('DB_PATH', '/app/data/database.db')  # Изменено на persistent путь для Render
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
