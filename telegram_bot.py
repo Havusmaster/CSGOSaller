@@ -43,16 +43,40 @@ async def handle_start_button(message: types.Message):
     await message.answer("Выберите язык / Tilni tanlang:", reply_markup=keyboard)
 
 
-# Обработка выбора языка
+# Обработка выбора языка — РУССКИЙ
 @dp.callback_query(F.data == "lang_ru")
 async def lang_ru(callback: types.CallbackQuery):
-    await callback.message.answer("Вы выбрали 🇷🇺 Русский язык!")
+    shop_button = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🛒 Перейти в магазин", callback_data="open_shop")]
+        ]
+    )
+    await callback.message.answer(
+        "Привет! 👋\n\nДобро пожаловать в наш бот-магазин. Здесь вы можете посмотреть товары и сделать заказ.",
+        reply_markup=shop_button
+    )
     await callback.answer()
 
 
+# Обработка выбора языка — УЗБЕКСКИЙ
 @dp.callback_query(F.data == "lang_uz")
 async def lang_uz(callback: types.CallbackQuery):
-    await callback.message.answer("Siz 🇺🇿 O'zbek tilini tanladingiz!")
+    shop_button = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🛒 Do‘konga o‘tish", callback_data="open_shop")]
+        ]
+    )
+    await callback.message.answer(
+        "Salom! 👋\n\nBot-do‘konimizga xush kelibsiz. Bu yerda siz mahsulotlarni ko‘rishingiz va buyurtma berishingiz mumkin.",
+        reply_markup=shop_button
+    )
+    await callback.answer()
+
+
+# Кнопка магазина (пример)
+@dp.callback_query(F.data == "open_shop")
+async def open_shop(callback: types.CallbackQuery):
+    await callback.message.answer("🛍 Здесь будет магазин. (Позже можно добавить товары или ссылки)")
     await callback.answer()
 
 
@@ -61,13 +85,15 @@ async def run_bot():
     logging.info("🚀 Запуск Telegram-бота...")
 
     try:
-        # Удаляем возможный webhook и очищаем старые апдейты
         await bot.delete_webhook(drop_pending_updates=True)
         logging.info("✅ Webhook отключён и старые апдейты очищены.")
 
-        # Запускаем polling
         await dp.start_polling(bot)
     except Exception as e:
         logging.error(f"❌ Ошибка при запуске бота: {e}")
     finally:
         await bot.session.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(run_bot())
