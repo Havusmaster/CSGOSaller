@@ -8,7 +8,7 @@ from aiogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton
 )
 from flask import Flask
-from config import BOT_TOKEN, ADMIN_ID
+from config import BOT_TOKEN, ADMIN_IDS
 
 # === Настройка логирования ===
 logging.basicConfig(level=logging.INFO)
@@ -22,7 +22,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def index():
-    return f"✅ Telegram Bot is running on Render!<br>Admin ID: {ADMIN_ID}"
+    return f"✅ Telegram Bot is running on Render!<br>Admin ID: {ADMIN_IDS}"
 
 # === /start — приветствие ===
 @dp.message(Command("start"))
