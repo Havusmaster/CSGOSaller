@@ -1,15 +1,18 @@
 import sqlite3
 import os
 
-DB_PATH = os.getenv('DB_PATH', '/app/data/database.db')  # Persistent путь для Render
+# 🛠 Путь к базе данных (Render разрешает писать только в /opt/render/project/src/)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.getenv("DB_PATH", os.path.join(BASE_DIR, "data", "database.db"))
 
 def init_db():
-    # Добавлено: Создаём директорию для db, если её нет (фикс ошибки unable to open database file)
+    # Создаём директорию для базы, если её нет
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    
+
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    
+
+    # Таблица товаров (магазин)
     c.execute('''
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,6 +28,7 @@ def init_db():
         )
     ''')
 
+    # Таблица аукционов
     c.execute('''
         CREATE TABLE IF NOT EXISTS lots (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,6 +47,7 @@ def init_db():
         )
     ''')
 
+    # Таблица ставок
     c.execute('''
         CREATE TABLE IF NOT EXISTS bids (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,6 +59,7 @@ def init_db():
         )
     ''')
 
+    # Таблица ожидания заявок
     c.execute('''
         CREATE TABLE IF NOT EXISTS pending_requests (
             user_id INTEGER,
@@ -64,18 +70,20 @@ def init_db():
         )
     ''')
 
-    c.execute("PRAGMA table_info(products)")
-    columns = [col[1] for col in c.fetchall()]
-    if 'float_value' not in columns:
-        c.execute('ALTER TABLE products ADD COLUMN float_value REAL')
+    # Проверка и добавление недостающих колонок
+    def ensure_column_exists(table_name, column_name, column_type):
+        c.execute(f"PRAGMA table_info({table_name})")
+        columns = [col[1] for col in c.fetchall()]
+        if column_name not in columns:
+            c.execute(f'ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}')
 
-    c.execute("PRAGMA table_info(lots)")
-    columns = [col[1] for col in c.fetchall()]
-    if 'float_value' not in columns:
-        c.execute('ALTER TABLE lots ADD COLUMN float_value REAL')
+    ensure_column_exists('products', 'float_value', 'REAL')
+    ensure_column_exists('lots', 'float_value', 'REAL')
 
     conn.commit()
     conn.close()
 
+
 if __name__ == '__main__':
     init_db()
+    print(f"✅ База данных успешно инициализирована по пути: {DB_PATH}")
