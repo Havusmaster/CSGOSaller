@@ -1,6 +1,6 @@
 # admin.py
 """
-Админские обёртки — проверка прав и удобные функции для webapp и бота.
+Утилиты для админов и обёртки (управление товарами/аукционами).
 """
 
 from config import ADMIN_IDS
@@ -12,7 +12,6 @@ def is_admin(telegram_id):
     except Exception:
         return False
 
-# Веб-обёртки для добавления/управления товарами / аукционами
 def admin_add_product(form):
     name = form.get("name") or "Без имени"
     description = form.get("description", "")
@@ -42,18 +41,3 @@ def admin_create_auction(form):
     duration_minutes = int(form.get("duration_minutes", 60))
     end_timestamp = int(time.time()) + duration_minutes * 60
     return database.create_auction(title, description, start_price, step, end_timestamp)
-
-def admin_get_products():
-    return database.get_products(only_available=False)
-
-def admin_get_auctions():
-    return database.get_auctions(only_active=False)
-
-def admin_place_bid(auction_id, bidder_identifier, amount):
-    return database.place_bid(auction_id, bidder_identifier, float(amount))
-
-def admin_get_bids(auction_id):
-    return database.get_bids_for_auction(auction_id)
-
-def admin_get_highest(auction_id):
-    return database.get_highest_bid(auction_id)

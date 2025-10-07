@@ -1,0 +1,26 @@
+<!-- templates/admin_dashboard.html -->
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static_files', filename='styles.css') }}">
+</head>
+<body class="theme-dark">
+  <main class="container">
+    <h2>🔧 Admin Dashboard</h2>
+    <section>
+      <h3>Товары</h3>
+      {% for p in products %}
+        <div class="card-small">{{ p.name }} — {{ p.price }}</div>
+      {% endfor %}
+    </section>
+    <section>
+      <h3>Аукционы</h3>
+      {% for a in auctions %}
+        <div class="card-small">{{ a.title }} — {{ a.start_price }}</div>
+      {% endfor %}
+    </section>
+  </main>
+</body>
+</html>

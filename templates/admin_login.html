@@ -1,0 +1,28 @@
+<!-- templates/admin_login.html -->
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin — CSsaler</title>
+  <link rel="stylesheet" href="{{ url_for('static_files', filename='styles.css') }}">
+</head>
+<body class="theme-dark">
+  <main class="container">
+    <h2>🔒 Админ вход</h2>
+    <form method="post">
+      <label>Telegram ID</label>
+      <input name="telegram_id" class="input" placeholder="Введите Telegram ID">
+      <button class="btn">Войти</button>
+    </form>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul>
+        {% for m in messages %}
+          <li>{{ m }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+  </main>
+</body>
+</html>

@@ -1,17 +1,13 @@
 # database.py
 """
-Модуль работы с SQLite.
-Таблицы создаются автоматически при импорте.
-Таблицы:
-- products: товары магазина
-- auctions: лоты аукциона
-- bids: ставки по лотам
+SQLite: хранение пользователей, товаров, аукционов и ставок.
+Автоинициализация базы при импорте.
 """
 
 import sqlite3
 import time
 from contextlib import closing
-from config import DB_PATH
+from config import DB_PATH, DEFAULT_LANG, DEFAULT_THEME
 
 def get_conn():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -21,6 +17,15 @@ def get_conn():
 def init_db():
     with closing(get_conn()) as conn:
         cur = conn.cursor()
+        # users: настройки языка и темы
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            tg_id INTEGER PRIMARY KEY,
+            lang TEXT DEFAULT ?,
+            theme TEXT DEFAULT ?,
+            updated_at INTEGER
+        )
+        """, (DEFAULT_LANG, DEFAULT_THEME))
         # products
         cur.execute("""
         CREATE TABLE IF NOT EXISTS products (
@@ -28,7 +33,7 @@ def init_db():
             name TEXT NOT NULL,
             description TEXT,
             price REAL NOT NULL,
-            type TEXT NOT NULL, -- 'agent' или 'weapon'
+            type TEXT NOT NULL,
             float_value REAL,
             link TEXT,
             sold INTEGER DEFAULT 0,
@@ -61,7 +66,35 @@ def init_db():
         """)
         conn.commit()
 
-# CRUD для products
+# --- Пользователи ---
+def set_user_pref(tg_id: int, lang: str = None, theme: str = None):
+    ts = int(time.time())
+    with closing(get_conn()) as conn:
+        cur = conn.cursor()
+        # если есть запись, обновим нужные поля
+        cur.execute("SELECT * FROM users WHERE tg_id=?", (tg_id,))
+        if cur.fetchone():
+            if lang:
+                cur.execute("UPDATE users SET lang=?, updated_at=? WHERE tg_id=?", (lang, ts, tg_id))
+            if theme:
+                cur.execute("UPDATE users SET theme=?, updated_at=? WHERE tg_id=?", (theme, ts, tg_id))
+        else:
+            # вставим с явными значениями (если None — используем defaults)
+            cur.execute("INSERT INTO users (tg_id, lang, theme, updated_at) VALUES (?, ?, ?, ?)",
+                        (tg_id, lang or DEFAULT_LANG, theme or DEFAULT_THEME, ts))
+        conn.commit()
+
+def get_user_pref(tg_id: int):
+    with closing(get_conn()) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM users WHERE tg_id=?", (tg_id,))
+        row = cur.fetchone()
+        if not row:
+            # вернуть дефолт
+            return {"tg_id": tg_id, "lang": DEFAULT_LANG, "theme": DEFAULT_THEME}
+        return dict(row)
+
+# === CRUD для товаров/аукционов/ставок (как раньше) ===
 def add_product(name, description, price, type_, float_value=None, link=None):
     ts = int(time.time())
     with closing(get_conn()) as conn:
@@ -101,7 +134,7 @@ def delete_product(product_id):
         cur.execute("DELETE FROM products WHERE id=?", (product_id,))
         conn.commit()
 
-# Auctions
+# auctions / bids (те же функции, как в предыдущем варианте)
 def create_auction(title, description, start_price, step, end_timestamp):
     ts = int(time.time())
     with closing(get_conn()) as conn:
@@ -136,7 +169,6 @@ def finish_auction(auction_id):
         cur.execute("UPDATE auctions SET finished=1 WHERE id=?", (auction_id,))
         conn.commit()
 
-# Bids
 def place_bid(auction_id, bidder_identifier, amount):
     ts = int(time.time())
     with closing(get_conn()) as conn:
@@ -161,5 +193,5 @@ def get_highest_bid(auction_id):
         row = cur.fetchone()
         return dict(row) if row else None
 
-# Инициализация БД при импорте модуля
+# автоинициализация
 init_db()
