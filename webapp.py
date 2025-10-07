@@ -1,20 +1,19 @@
 # webapp.py
 """
-Flask WebApp с магазином, аукционами и админ-панелью.
-Интерфейс на Bootstrap 5, светлая тема.
-Авторизация админа — ввод Telegram ID (сверяется с ADMIN_IDS).
+Flask WebApp: магазин, аукционы, админ-панель.
+Интерфейс на Bootstrap 5. Всё на русском.
 """
 
 from flask import Flask, render_template_string, request, redirect, url_for, session, flash
-from config import FLASK_SECRET, APP_URL
-from database import get_products, get_product, get_auctions, get_bids_for_auction, place_bid, get_highest_bid, get_auction
+from config import FLASK_SECRET, APP_URL, FLASK_PORT
+import database
 from admin import is_admin, admin_add_product, admin_get_products, admin_delete_product, admin_mark_sold, admin_create_auction, admin_get_auctions, admin_get_bids
 import time
 
 app = Flask(__name__)
 app.secret_key = FLASK_SECRET
 
-# >>> Простые шаблоны (можно вынести в файлы). Для компактности — inline шаблоны.
+# Базовый шаблон
 BASE_HTML = """
 <!doctype html>
 <html lang="ru">
@@ -25,9 +24,8 @@ BASE_HTML = """
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
       body { background: #f8fafc; }
-      .card { border-radius: 14px; }
-      .tg-btn { text-decoration: none; }
-      .shadow-soft { box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+      .card { border-radius: 12px; }
+      .shadow-soft { box-shadow: 0 6px 18px rgba(0,0,0,0.06); }
       .hover-grow:hover { transform: translateY(-4px); transition: .18s; }
     </style>
   </head>
@@ -52,23 +50,25 @@ BASE_HTML = """
           </div>
         {% endif %}
       {% endwith %}
-      {{ content }}
+      {{ content|safe }}
     </div>
-    <footer class="text-center mt-5 mb-5 text-muted">© CSsaler — красивый магазин и аукцион</footer>
+    <footer class="text-center mt-5 mb-5 text-muted">© CSsaler</footer>
   </body>
 </html>
 """
 
-# ----- Магазин -----
+# Главная — магазин
 @app.route("/")
 def index():
-    products = get_products(only_available=True)
+    products = database.get_products(only_available=True)
     cards = ""
     for p in products:
         float_info = f"<div class='text-muted small'>Float: {p['float_value']}</div>" if p['type']=='weapon' and p['float_value'] else ""
         link_button = f"<a class='btn btn-sm btn-outline-primary' href='{p['link'] or '#'}' target='_blank'>🔗 Ссылка на продукт</a>" if p.get('link') else ""
-        # tg link to admin by id (opens profile)
-        admin_link = f"tg://user?id={ (request.args.get('admin_default') or '') }"  # placeholder - user will click and choose admin in bot
+        admin_profile_link = ""
+        if p:
+            # открытие профиля первого админа
+            admin_profile_link = f"tg://user?id={ (database.get_products and '') }"
         cards += f"""
         <div class="col-md-4 mb-4">
           <div class="card p-3 shadow-soft hover-grow">
@@ -77,38 +77,34 @@ def index():
             <div class="fw-bold">💰 {p['price']}</div>
             <div class="small text-muted">Тип: {'🔫 Оружие' if p['type']=='weapon' else '💼 Агент'}</div>
             {float_info}
-            <div class="mt-3 d-flex justify-content-between">
-              <a class="btn btn-primary" href="tg://resolve?domain=YOUR_BOT_USERNAME&start=buy_{p['id']}">🛒 Купить</a>
+            <div class="mt-3 d-flex gap-2">
+              <a class="btn btn-primary" href="tg://resolve?domain=&start=buy_{p['id']}">🛒 Купить</a>
               {link_button}
-              <a class="btn btn-outline-secondary" href="tg://user?id={request.args.get('admin_id', '')}">💬 Написать админу</a>
+              <a class="btn btn-outline-secondary" href="tg://user?id=0">💬 Написать админу</a>
             </div>
           </div>
         </div>
         """
-    content = f"""
-    <div class="row">
-      {cards or '<div class="alert alert-warning">Нет доступных товаров</div>'}
-    </div>
-    """
+    content = f"<div class='row'>{cards or '<div class=\"alert alert-warning\">Нет доступных товаров</div>'}</div>"
     return render_template_string(BASE_HTML, content=content)
 
-# ----- Аукционы -----
+# Аукционы — список и формы ставок
 @app.route("/auctions")
 def auctions():
-    auctions = get_auctions(only_active=True)
+    auctions = database.get_auctions(only_active=True)
     cards = ""
     for a in auctions:
         now = int(time.time())
-        remaining = a['end_timestamp'] - now
-        minutes = remaining // 60 if remaining>0 else 0
-        highest = get_highest_bid(a['id'])
+        remaining = max(0, a['end_timestamp'] - now)
+        minutes = remaining // 60
+        highest = database.get_highest_bid(a['id'])
         highest_str = f"{highest['amount']} ({highest['bidder_identifier']})" if highest else "Пока нет ставок"
         cards += f"""
         <div class="col-md-6 mb-4">
           <div class="card p-3 shadow-soft hover-grow">
             <h5>🏷️ {a['title']}</h5>
             <p class="small text-muted">{a['description']}</p>
-            <div class="small">Старт: {a['start_price']}, Шаг: {a['step']}</div>
+            <div class="small">Старт: {a['start_price']} | Шаг: {a['step']}</div>
             <div class="fw-bold mt-2">Текущий максимум: {highest_str}</div>
             <div class="text-muted small">Осталось: {minutes} мин</div>
             <form method="post" action="/auction/{a['id']}/bid" class="mt-3 d-flex">
@@ -119,11 +115,7 @@ def auctions():
           </div>
         </div>
         """
-    content = f"""
-    <div class="row">
-      {cards or '<div class="alert alert-info">Нет активных аукционов</div>'}
-    </div>
-    """
+    content = f"<div class='row'>{cards or '<div class=\"alert alert-info\">Нет активных аукционов</div>'}</div>"
     return render_template_string(BASE_HTML, content=content)
 
 @app.route("/auction/<int:auction_id>/bid", methods=["POST"])
@@ -138,14 +130,13 @@ def auction_bid(auction_id):
     except:
         flash("Сумма указана неверно ❌")
         return redirect(url_for("auctions"))
-    place_bid(auction_id, bidder, amount)
+    database.place_bid(auction_id, bidder, amount)
     flash("✅ Ваша ставка принята!")
     return redirect(url_for("auctions"))
 
-# ----- Админ-панель -----
+# Админ — простой вход по Telegram ID
 @app.route("/admin", methods=["GET", "POST"])
 def admin_panel():
-    # простой вход: укажите ваш Telegram ID
     if request.method == "POST":
         tid = request.form.get("telegram_id")
         if tid and is_admin(tid):
@@ -165,7 +156,6 @@ def admin_panel():
         </div>
         <button class="btn btn-primary">Войти</button>
       </form>
-      <div class="mt-3 text-muted small">Авторизация по Telegram ID</div>
     </div>
     """
     return render_template_string(BASE_HTML, content=content)
@@ -177,7 +167,29 @@ def admin_dashboard():
         return redirect(url_for("admin_panel"))
     prods = admin_get_products()
     auctions_all = admin_get_auctions()
-    # Forms for add product and create auction
+    # карточки и формы
+    product_rows = ""
+    for p in prods:
+        product_rows += f"""
+        <div class='border p-2 mb-2 rounded'>
+          <div class='d-flex justify-content-between'>
+            <div><strong>📦 {p['name']}</strong> — {p['price']}<br><small class='text-muted'>{p['description']}</small></div>
+            <div>
+              <a href='/admin/delete_product/{p['id']}' class='btn btn-sm btn-danger mb-1'>Удалить</a>
+              <a href='/admin/mark_sold/{p['id']}' class='btn btn-sm btn-outline-success mb-1'>Отметить как продано</a><br>
+              <a class='btn btn-sm btn-outline-secondary' href='tg://user?id=0'>💬 Написать админу</a>
+            </div>
+          </div>
+        </div>
+        """
+    auctions_rows = ""
+    for a in auctions_all:
+        auctions_rows += f"""
+        <div class='border p-2 mb-2 rounded'>
+          <strong>🏷 {a['title']}</strong> — Старт {a['start_price']} — Конец: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(a['end_timestamp']))}<br>
+          <a href='/admin/auction/{a['id']}/bids' class='btn btn-sm btn-outline-primary mt-2'>Посмотреть ставки</a>
+        </div>
+        """
     content = f"""
     <div class="row">
       <div class="col-md-6">
@@ -213,35 +225,12 @@ def admin_dashboard():
       <div class="col-md-6">
         <div class="card p-3 mb-3 shadow-soft">
           <h5>📦 Товары</h5>
-          {''.join([
-            f\"\"\"
-            <div class='border p-2 mb-2 rounded'>
-              <div class='d-flex justify-content-between'>
-                <div>
-                  <strong>📦 {p['name']}</strong> — {p['price']}<br>
-                  <small class='text-muted'>{p['description']}</small>
-                </div>
-                <div>
-                  <a href='/admin/delete_product/{p['id']}' class='btn btn-sm btn-danger mb-1'>Удалить</a>
-                  <a href='/admin/mark_sold/{p['id']}' class='btn btn-sm btn-outline-success mb-1'>Отметить как продано</a><br>
-                  <a class='btn btn-sm btn-outline-secondary' href='tg://user?id={{session.get(\"admin_id\")}}'>💬 Написать админу</a>
-                </div>
-              </div>
-            </div>
-            \"\"\" for p in prods
-          ])}
+          {product_rows or '<div class="small text-muted">Нет товаров</div>'}
         </div>
 
         <div class="card p-3 shadow-soft">
           <h5>⚔️ Аукционы (все)</h5>
-          {''.join([
-            f\"\"\"
-            <div class='border p-2 mb-2 rounded'>
-              <strong>🏷 {a['title']}</strong> — Старт {a['start_price']} — Конец: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(a['end_timestamp']))}<br>
-              <a href='/admin/auction/{a['id']}/bids' class='btn btn-sm btn-outline-primary mt-2'>Посмотреть ставки</a>
-            </div>
-            \"\"\" for a in auctions_all
-          ])}
+          {auctions_rows or '<div class="small text-muted">Нет аукционов</div>'}
         </div>
       </div>
     </div>
@@ -253,8 +242,7 @@ def admin_add_product_route():
     if not session.get('admin_id') or not is_admin(session.get('admin_id')):
         flash("Доступ запрещён")
         return redirect(url_for("admin_panel"))
-    form = request.form
-    admin_add_product(form)
+    admin_add_product(request.form)
     flash("✅ Товар добавлен")
     return redirect(url_for("admin_dashboard"))
 
@@ -308,12 +296,10 @@ def admin_view_bids(auction_id):
     """
     return render_template_string(BASE_HTML, content=content)
 
-# Простой keep-alive endpoint
 @app.route("/health")
 def health():
     return "OK", 200
 
-# Экспорт Flask app для запуска в bot.py
+# Запуск только если вебврап запускается вручную (в бот.py мы запускаем Flask вручную)
 if __name__ == "__main__":
-    # Запуск только при прямом запуске (обычно мы в bot.py запускаем)
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host=FLASK_HOST, port=FLASK_PORT)

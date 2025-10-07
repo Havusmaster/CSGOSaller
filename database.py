@@ -1,26 +1,27 @@
 # database.py
 """
 Модуль работы с SQLite.
-Автоинициализация базы данных при импорте.
-Хранит: товары (products), аукционы (auctions), ставки (bids).
+Таблицы создаются автоматически при импорте.
+Таблицы:
+- products: товары магазина
+- auctions: лоты аукциона
+- bids: ставки по лотам
 """
 
 import sqlite3
-from contextlib import closing
 import time
+from contextlib import closing
 from config import DB_PATH
 
-# Создаём подключение при каждом вызове функции (простая и надёжная схема)
 def get_conn():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
-    """Создаёт таблицы, если их нет."""
     with closing(get_conn()) as conn:
         cur = conn.cursor()
-        # Таблица товаров
+        # products
         cur.execute("""
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,13 +29,13 @@ def init_db():
             description TEXT,
             price REAL NOT NULL,
             type TEXT NOT NULL, -- 'agent' или 'weapon'
-            float_value REAL, -- nullable, только для оружия
+            float_value REAL,
             link TEXT,
             sold INTEGER DEFAULT 0,
             created_at INTEGER
         )
         """)
-        # Таблица аукционов
+        # auctions
         cur.execute("""
         CREATE TABLE IF NOT EXISTS auctions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,12 +48,12 @@ def init_db():
             created_at INTEGER
         )
         """)
-        # Таблица ставок
+        # bids
         cur.execute("""
         CREATE TABLE IF NOT EXISTS bids (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             auction_id INTEGER NOT NULL,
-            bidder_identifier TEXT NOT NULL, -- @username or Telegram ID or any identifier from webapp
+            bidder_identifier TEXT NOT NULL,
             amount REAL NOT NULL,
             created_at INTEGER,
             FOREIGN KEY(auction_id) REFERENCES auctions(id)
@@ -60,7 +61,7 @@ def init_db():
         """)
         conn.commit()
 
-# ----- Products -----
+# CRUD для products
 def add_product(name, description, price, type_, float_value=None, link=None):
     ts = int(time.time())
     with closing(get_conn()) as conn:
@@ -79,7 +80,7 @@ def get_products(only_available=True):
             cur.execute("SELECT * FROM products WHERE sold=0 ORDER BY id DESC")
         else:
             cur.execute("SELECT * FROM products ORDER BY id DESC")
-        return [dict(row) for row in cur.fetchall()]
+        return [dict(r) for r in cur.fetchall()]
 
 def get_product(product_id):
     with closing(get_conn()) as conn:
@@ -100,7 +101,7 @@ def delete_product(product_id):
         cur.execute("DELETE FROM products WHERE id=?", (product_id,))
         conn.commit()
 
-# ----- Auctions -----
+# Auctions
 def create_auction(title, description, start_price, step, end_timestamp):
     ts = int(time.time())
     with closing(get_conn()) as conn:
@@ -120,7 +121,7 @@ def get_auctions(only_active=True):
             cur.execute("SELECT * FROM auctions WHERE finished=0 AND end_timestamp>? ORDER BY end_timestamp ASC", (now,))
         else:
             cur.execute("SELECT * FROM auctions ORDER BY id DESC")
-        return [dict(row) for row in cur.fetchall()]
+        return [dict(r) for r in cur.fetchall()]
 
 def get_auction(auction_id):
     with closing(get_conn()) as conn:
@@ -135,7 +136,7 @@ def finish_auction(auction_id):
         cur.execute("UPDATE auctions SET finished=1 WHERE id=?", (auction_id,))
         conn.commit()
 
-# ----- Bids -----
+# Bids
 def place_bid(auction_id, bidder_identifier, amount):
     ts = int(time.time())
     with closing(get_conn()) as conn:
@@ -151,7 +152,7 @@ def get_bids_for_auction(auction_id):
     with closing(get_conn()) as conn:
         cur = conn.cursor()
         cur.execute("SELECT * FROM bids WHERE auction_id=? ORDER BY amount DESC, created_at ASC", (auction_id,))
-        return [dict(row) for row in cur.fetchall()]
+        return [dict(r) for r in cur.fetchall()]
 
 def get_highest_bid(auction_id):
     with closing(get_conn()) as conn:
@@ -160,5 +161,5 @@ def get_highest_bid(auction_id):
         row = cur.fetchone()
         return dict(row) if row else None
 
-# Инициализация базы при импортировании
+# Инициализация БД при импорте модуля
 init_db()

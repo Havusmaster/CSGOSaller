@@ -1,6 +1,5 @@
-aiogram==2.25.1
+aiogram==3.13.1
 Flask==3.0.3
 requests==2.32.3
-aiohttp==3.8.6
-aioschedule==0.5.2
 gunicorn==22.0.0
+aioschedule==0.5.2
