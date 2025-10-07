@@ -1,765 +1,319 @@
-import os
-import logging
-import sqlite3
-from flask import Flask, render_template_string, request, redirect, url_for, session
-from templates import TAILWIND
-from config import ADMIN_IDS, BOT_USERNAME, ADMIN_USERNAME
-from database import DB_PATH
-from telegram_bot import bot
-import asyncio
+# webapp.py
+"""
+Flask WebApp с магазином, аукционами и админ-панелью.
+Интерфейс на Bootstrap 5, светлая тема.
+Авторизация админа — ввод Telegram ID (сверяется с ADMIN_IDS).
+"""
+
+from flask import Flask, render_template_string, request, redirect, url_for, session, flash
+from config import FLASK_SECRET, APP_URL
+from database import get_products, get_product, get_auctions, get_bids_for_auction, place_bid, get_highest_bid, get_auction
+from admin import is_admin, admin_add_product, admin_get_products, admin_delete_product, admin_mark_sold, admin_create_auction, admin_get_auctions, admin_get_bids
 import time
 
-logging.basicConfig(filename="bot.log", level=logging.INFO, format="%(asctime)s %(message)s")
-
 app = Flask(__name__)
-app.secret_key = "supersecretkey"
-app.config['UPLOAD_FOLDER'] = 'static/images/'
-app.config['DEBUG'] = True
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+app.secret_key = FLASK_SECRET
 
-# Translations dictionary
-TRANSLATIONS = {
-    'ru': {
-        'title': 'CSGO Saller',
-        'welcome_title': 'Добро пожаловать!',
-        'welcome_message': 'Спасибо за посещение CSGO Saller! Здесь вы можете купить скины, участвовать в аукционах и наслаждаться безопасной торговлей.',
-        'home': '🏠 Главная',
-        'shop': '🛒 Магазин',
-        'auction': '🏆 Аукцион',
-        'admin_panel': '🔑 Админ-панель',
-        'back': '⬅️ Назад',
-        'shop_title': 'Магазин',
-        'product_not_found': 'Товар не найден.',
-        'product_id': 'Товар ID',
-        'price': '💰 Цена',
-        'quantity': '📦 Количество',
-        'float': '🔢 Float',
-        'trade_ban': '🚫 Trade Ban',
-        'type': '🎮 Тип',
-        'product_link': '🔗 Ссылка на товар',
-        'send_to_admin': '📋 Отправьте эту ссылку и вашу трейд-ссылку администратору в Telegram!',
-        'contact_admin': '📩 Написать админу',
-        'return_to_shop': '⬅️ Вернуться в магазин',
-        'buy_error_no_id': 'Ошибка: ID товара не указан.',
-        'buy_error_unavailable': 'Товар недоступен.',
-        'buy_success': '✅ Заявка на покупку отправлена администратору!',
-        'auction_title': 'Аукцион',
-        'lot_unavailable': 'Лот недоступен.',
-        'bid_too_low': 'Сумма слишком мала.',
-        'current_bid': '💰 Текущая ставка',
-        'time_left': '⏳ До конца',
-        'bid_step': '🔼 Ставка +',
-        'custom_bid': '💸 Ввести сумму',
-        'bid_placeholder': 'Ваша ставка (₽)',
-        'no_limit': 'Без ограничения',
-        'weapon': 'Оружие',
-        'agent': 'Агент',
-        'yes': 'Да',
-        'no': 'Нет',
-        'na': 'N/A',
-        'language': 'Язык',
-        'russian': 'Русский',
-        'uzbek': 'O‘zbek'
-    },
-    'uz': {
-        'title': 'CSGO Saller',
-        'welcome_title': 'Xush kelibsiz!',
-        'welcome_message': 'CSGO Saller’ga tashrif buyurganingiz uchun rahmat! Bu yerda siz skinlarni sotib olishingiz, auktsionlarda ishtirok etishingiz va xavfsiz savdo qilishingiz mumkin.',
-        'home': '🏠 Bosh sahifa',
-        'shop': '🛒 Do‘kon',
-        'auction': '🏆 Auktsion',
-        'admin_panel': '🔑 Admin paneli',
-        'back': '⬅️ Orqaga',
-        'shop_title': 'Do‘kon',
-        'product_not_found': 'Mahsulot topilmadi.',
-        'product_id': 'Mahsulot ID',
-        'price': '💰 Narx',
-        'quantity': '📦 Soni',
-        'float': '🔢 Float',
-        'trade_ban': '🚫 Savdo taqiqlangan',
-        'type': '🎮 Turi',
-        'product_link': '🔗 Mahsulot havolasi',
-        'send_to_admin': '📋 Ushbu havolani va savdo havolangizni Telegram orqali administratorga yuboring!',
-        'contact_admin': '📩 Administratorga yozish',
-        'return_to_shop': '⬅️ Do‘konga qaytish',
-        'buy_error_no_id': 'Xato: Mahsulot ID kiritilmagan.',
-        'buy_error_unavailable': 'Mahsulot mavjud emas.',
-        'buy_success': '✅ Sotib olish so‘rovi administratorga yuborildi!',
-        'auction_title': 'Auktsion',
-        'lot_unavailable': 'Lot mavjud emas.',
-        'bid_too_low': 'Summa juda past.',
-        'current_bid': '💰 Joriy stavka',
-        'time_left': '⏳ Tugash vaqti',
-        'bid_step': '🔼 Stavka +',
-        'custom_bid': '💸 Summa kiritish',
-        'bid_placeholder': 'Sizning stavkangiz (₽)',
-        'no_limit': 'Cheklovsiz',
-        'weapon': 'Qurol',
-        'agent': 'Agent',
-        'yes': 'Ha',
-        'no': 'Yo‘q',
-        'na': 'Mavjud emas',
-        'language': 'Til',
-        'russian': 'Ruscha',
-        'uzbek': 'O‘zbek'
-    }
-}
+# >>> Простые шаблоны (можно вынести в файлы). Для компактности — inline шаблоны.
+BASE_HTML = """
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CSsaler — Магазин и Аукцион</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+      body { background: #f8fafc; }
+      .card { border-radius: 14px; }
+      .tg-btn { text-decoration: none; }
+      .shadow-soft { box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+      .hover-grow:hover { transform: translateY(-4px); transition: .18s; }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm mb-4">
+      <div class="container">
+        <a class="navbar-brand" href="/">🛍️ CSsaler</a>
+        <div>
+          <a class="btn btn-outline-primary me-2" href="/">Магазин</a>
+          <a class="btn btn-outline-success me-2" href="/auctions">Аукционы</a>
+          <a class="btn btn-outline-dark" href="/admin">Админ-панель</a>
+        </div>
+      </div>
+    </nav>
+    <div class="container">
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="mb-3">
+            {% for m in messages %}
+              <div class="alert alert-info">{{ m }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+      {{ content }}
+    </div>
+    <footer class="text-center mt-5 mb-5 text-muted">© CSsaler — красивый магазин и аукцион</footer>
+  </body>
+</html>
+"""
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    user_id = session.get('user_id', None)
-    lang = request.args.get('lang', 'ru')
-    logging.info(f"Login route: user_id={user_id}, lang={lang}")
-    if user_id in ADMIN_IDS:
-        logging.info("User is admin, redirecting to /admin/products")
-        return redirect(url_for('admin_products', lang=lang))
-    logging.info("User not admin, redirecting to /")
-    return redirect(url_for('index', lang=lang))
-
-@app.route('/')
+# ----- Магазин -----
+@app.route("/")
 def index():
-    user_id = session.get('user_id', None)
-    lang = request.args.get('lang', 'ru')
-    if lang not in ['ru', 'uz']:
-        lang = 'ru'
-    logging.info(f"Index route: session user_id={user_id}, query user_id={request.args.get('user_id', None)}, lang={lang}")
-    if not user_id:
-        user_id = request.args.get('user_id', None)
-        if user_id:
-            try:
-                user_id = int(user_id)
-                session['user_id'] = user_id
-                logging.info(f"Set session user_id: {user_id}")
-            except:
-                user_id = None
-                logging.error("Failed to parse user_id from query")
-    t = TRANSLATIONS[lang]
-    show_welcome = request.args.get('show_welcome', 'false') == 'true'
-    html = TAILWIND + """
-    <div class="container mx-auto pt-12 pb-10 px-4 text-center bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
-      <header class="flex justify-between items-center mb-8">
-        <h1 class="text-4xl md:text-5xl font-extrabold text-orange-500 animate-pulse">{}</h1>
-        <div class="relative">
-          <select onchange="window.location.href='/?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500">
-            <option value="ru" {}>{}</option>
-            <option value="uz" {}>{}</option>
-          </select>
-        </div>
-      </header>
-      <p class="text-lg md:text-xl text-gray-300 mb-8 max-w-2xl mx-auto">{}</p>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10 max-w-4xl mx-auto">
-        <a href="/shop?lang={}" class="bg-green-600 text-white font-semibold py-4 px-6 rounded-lg shadow-lg hover:bg-green-700 transform hover:scale-105 transition duration-300 btn">{}</a>
-        <a href="/auction?lang={}" class="bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg shadow-lg hover:bg-blue-700 transform hover:scale-105 transition duration-300 btn">{}</a>
-      </div>
-    """.format(
-        t['title'],
-        'selected' if lang == 'ru' else '',
-        t['russian'],
-        'selected' if lang == 'uz' else '',
-        t['uzbek'],
-        t['welcome_message'],
-        lang,
-        t['shop'],
-        lang,
-        t['auction']
-    )
-    if user_id in ADMIN_IDS:
-        html += '<a href="/admin/products?lang={}" class="bg-gray-700 text-white font-semibold py-4 px-6 rounded-lg shadow-lg hover:bg-gray-600 transform hover:scale-105 transition duration-300 btn inline-block">{}</a>'.format(lang, t['admin_panel'])
-    html += """
-      <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div id="modalContent" class="max-w-md w-full"></div>
-      </div>
-      <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-4 md:hidden">
-        <a href="/?lang={}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{}</a>
-        <a href="/shop?lang={}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{}</a>
-        <a href="/auction?lang={}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{}</a>
-      </div>
-    </div>
-    <script>
-        // Automatically show welcome modal if show_welcome=true
-        window.addEventListener('DOMContentLoaded', () => {{
-            if ({}) {{
-                openModal('welcome', '{}', '{}', 0, 0, null, 0, 'welcome', '{}');
-            }}
-        }});
-    </script>
-    """.format(
-        lang, t['home'], lang, t['shop'], lang, t['auction'],
-        'true' if show_welcome else 'false',
-        t['welcome_title'],
-        t['welcome_message'],
-        lang
-    )
-    return html
-
-@app.route('/shop')
-def shop():
-    user_id = session.get('user_id', None)
-    lang = request.args.get('lang', 'ru')
-    if lang not in ['ru', 'uz']:
-        lang = 'ru'
-    t = TRANSLATIONS[lang]
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products WHERE sold=0 AND quantity>0')
-    products = c.fetchall()
-    conn.close()
-    html = TAILWIND + """
-    <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
-      <header class="flex justify-between items-center mb-8">
-        <h2 class="text-3xl font-bold text-green-500">{}</h2>
-        <div class="relative">
-          <select onchange="window.location.href='/shop?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-            <option value="ru" {}>{}</option>
-            <option value="uz" {}>{}</option>
-          </select>
-        </div>
-      </header>
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-    """.format(
-        t['shop_title'],
-        'selected' if lang == 'ru' else '',
-        t['russian'],
-        'selected' if lang == 'uz' else '',
-        t['uzbek']
-    )
+    products = get_products(only_available=True)
+    cards = ""
     for p in products:
-        img_html = '<img src="/static/images/{}" class="mb-4 w-full rounded-lg object-cover shadow-md animate-fade-in" style="max-height:180px;" alt="{}">'.format(p[6], p[1]) if p[6] else ""
-        float_text = "{}: {:.4f}".format(t['float'], p[7]) if p[7] is not None and p[9] == 'weapon' else "{}: {}".format(t['float'], t['na'])
-        ban_text = "{}: {}".format(t['trade_ban'], t['yes'] if p[8] else t['no'])
-        type_text = "{}: {}".format(t['type'], t['weapon'] if p[9] == 'weapon' else t['agent'])
-        product_link = f"https://csgosaller-1.onrender.com/product/{p[0]}"
-        escaped_name = p[1].replace("'", "\\'")
-        escaped_desc = p[2].replace("'", "\\'")
-        html += """
-        <div class="bg-gray-800 rounded-lg p-4 card shadow-lg hover:shadow-xl transition duration-300 animate-fade-in">
-          {}
-          <h5 class="text-xl font-bold text-green-500 mb-2">{}</h5>
-          <p class="text-gray-300 text-sm mb-2">{}</p>
-          <p class="text-sm text-gray-400 mb-2">{}: {}</p>
-          <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">{}: {}₽</span> <span class="bg-blue-500 text-white px-2 py-1 rounded ml-2">{}: {}</span></p>
-          <p class="mt-2 text-sm text-gray-400">{} | {} | {}</p>
-          <button onclick="openModal({}, '{}', '{}', {}, {}, {}, {}, '{}', '{}')" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 transform hover:scale-105 transition duration-300 btn mt-4 text-sm">{}</button>
+        float_info = f"<div class='text-muted small'>Float: {p['float_value']}</div>" if p['type']=='weapon' and p['float_value'] else ""
+        link_button = f"<a class='btn btn-sm btn-outline-primary' href='{p['link'] or '#'}' target='_blank'>🔗 Ссылка на продукт</a>" if p.get('link') else ""
+        # tg link to admin by id (opens profile)
+        admin_link = f"tg://user?id={ (request.args.get('admin_default') or '') }"  # placeholder - user will click and choose admin in bot
+        cards += f"""
+        <div class="col-md-4 mb-4">
+          <div class="card p-3 shadow-soft hover-grow">
+            <h5>📦 {p['name']}</h5>
+            <p class="small text-muted">{p['description']}</p>
+            <div class="fw-bold">💰 {p['price']}</div>
+            <div class="small text-muted">Тип: {'🔫 Оружие' if p['type']=='weapon' else '💼 Агент'}</div>
+            {float_info}
+            <div class="mt-3 d-flex justify-content-between">
+              <a class="btn btn-primary" href="tg://resolve?domain=YOUR_BOT_USERNAME&start=buy_{p['id']}">🛒 Купить</a>
+              {link_button}
+              <a class="btn btn-outline-secondary" href="tg://user?id={request.args.get('admin_id', '')}">💬 Написать админу</a>
+            </div>
+          </div>
         </div>
-        """.format(
-            img_html,
-            p[1],
-            p[2],
-            t['product_id'],
-            p[0],
-            t['price'],
-            p[3],
-            t['quantity'],
-            p[4],
-            float_text,
-            ban_text,
-            type_text,
-            p[0],
-            escaped_name,
-            escaped_desc,
-            p[3],
-            p[4],
-            p[7] if p[7] is not None else 'null',
-            p[8],
-            p[9],
-            lang,
-            t['contact_admin']
-        )
-    html += """
-      </div>
-      <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div id="modalContent" class="max-w-md w-full"></div>
-      </div>
-      <hr class="border-gray-700 my-8">
-      <a href="/?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn w-full text-center">{}</a>
-      <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-4 md:hidden">
-        <a href="/?lang={}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{}</a>
-        <a href="/auction?lang={}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{}</a>
-      </div>
+        """
+    content = f"""
+    <div class="row">
+      {cards or '<div class="alert alert-warning">Нет доступных товаров</div>'}
     </div>
-    """.format(lang, t['back'], lang, t['home'], lang, t['auction'])
-    return html
+    """
+    return render_template_string(BASE_HTML, content=content)
 
-@app.route('/product/<int:product_id>')
-def product(product_id):
-    lang = request.args.get('lang', 'ru')
-    if lang not in ['ru', 'uz']:
-        lang = 'ru'
-    t = TRANSLATIONS[lang]
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('SELECT id, name, description, price, quantity, sold, image, float_value, trade_ban, type FROM products WHERE id=?', (product_id,))
-    product = c.fetchone()
-    conn.close()
-    
-    if not product:
-        return TAILWIND + """
-        <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
-            <header class="flex justify-between items-center mb-8">
-              <h2 class="text-3xl font-bold text-red-500">{}</h2>
-              <div class="relative">
-                <select onchange="window.location.href='/shop?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
-                  <option value="ru" {}>{}</option>
-                  <option value="uz" {}>{}</option>
-                </select>
-              </div>
-            </header>
-            <div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{}</div>
-            <a href="/shop?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{}</a>
+# ----- Аукционы -----
+@app.route("/auctions")
+def auctions():
+    auctions = get_auctions(only_active=True)
+    cards = ""
+    for a in auctions:
+        now = int(time.time())
+        remaining = a['end_timestamp'] - now
+        minutes = remaining // 60 if remaining>0 else 0
+        highest = get_highest_bid(a['id'])
+        highest_str = f"{highest['amount']} ({highest['bidder_identifier']})" if highest else "Пока нет ставок"
+        cards += f"""
+        <div class="col-md-6 mb-4">
+          <div class="card p-3 shadow-soft hover-grow">
+            <h5>🏷️ {a['title']}</h5>
+            <p class="small text-muted">{a['description']}</p>
+            <div class="small">Старт: {a['start_price']}, Шаг: {a['step']}</div>
+            <div class="fw-bold mt-2">Текущий максимум: {highest_str}</div>
+            <div class="text-muted small">Осталось: {minutes} мин</div>
+            <form method="post" action="/auction/{a['id']}/bid" class="mt-3 d-flex">
+              <input name="bidder" class="form-control me-2" placeholder="@username или ID" required>
+              <input name="amount" class="form-control me-2" placeholder="Сумма" type="number" step="0.01" required>
+              <button class="btn btn-success">Сделать ставку</button>
+            </form>
+          </div>
         </div>
-        """.format(
-            t['shop_title'],
-            'selected' if lang == 'ru' else '',
-            t['russian'],
-            'selected' if lang == 'uz' else '',
-            t['uzbek'],
-            t['product_not_found'],
-            lang,
-            t['return_to_shop']
-        )
-    
-    float_text = "{}: {:.4f}".format(t['float'], product[7]) if product[7] is not None and product[9] == 'weapon' else "{}: {}".format(t['float'], t['na'])
-    ban_text = "{}: {}".format(t['trade_ban'], t['yes'] if product[8] else t['no'])
-    type_text = "{}: {}".format(t['type'], t['weapon'] if product[9] == 'weapon' else t['agent'])
-    img_html = '<img src="/static/images/{}" class="w-full rounded-lg object-cover mb-4 shadow-md animate-fade-in" style="max-height:300px;" alt="{}">'.format(product[6], product[1]) if product[6] else ""
-    product_link = f"https://csgosaller-1.onrender.com/product/{product[0]}"
-    admin_url = f"https://t.me/{ADMIN_USERNAME}" if not ADMIN_USERNAME.startswith('+') else f"https://t.me/{ADMIN_USERNAME}"
-    
-    html = TAILWIND + """
-    <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
-        <header class="flex justify-between items-center mb-8">
-          <h2 class="text-3xl font-bold text-green-500">{}: {}</h2>
-          <div class="relative">
-            <select onchange="window.location.href='/product/{}?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-              <option value="ru" {}>{}</option>
-              <option value="uz" {}>{}</option>
+        """
+    content = f"""
+    <div class="row">
+      {cards or '<div class="alert alert-info">Нет активных аукционов</div>'}
+    </div>
+    """
+    return render_template_string(BASE_HTML, content=content)
+
+@app.route("/auction/<int:auction_id>/bid", methods=["POST"])
+def auction_bid(auction_id):
+    bidder = request.form.get("bidder")
+    amount = request.form.get("amount")
+    if not bidder or not amount:
+        flash("Пожалуйста, заполните все поля ✍️")
+        return redirect(url_for("auctions"))
+    try:
+        amount = float(amount)
+    except:
+        flash("Сумма указана неверно ❌")
+        return redirect(url_for("auctions"))
+    place_bid(auction_id, bidder, amount)
+    flash("✅ Ваша ставка принята!")
+    return redirect(url_for("auctions"))
+
+# ----- Админ-панель -----
+@app.route("/admin", methods=["GET", "POST"])
+def admin_panel():
+    # простой вход: укажите ваш Telegram ID
+    if request.method == "POST":
+        tid = request.form.get("telegram_id")
+        if tid and is_admin(tid):
+            session['admin_id'] = int(tid)
+            flash("✅ Авторизация прошла успешно")
+            return redirect(url_for("admin_dashboard"))
+        else:
+            flash("⛔ Доступ запрещён: вы не в списке админов")
+            return redirect(url_for("admin_panel"))
+    content = """
+    <div class="card p-4">
+      <h4>🔒 Вход в админ-панель</h4>
+      <form method="post">
+        <div class="mb-3">
+          <label class="form-label">Telegram ID (цифры)</label>
+          <input name="telegram_id" class="form-control" placeholder="Введите ваш Telegram ID">
+        </div>
+        <button class="btn btn-primary">Войти</button>
+      </form>
+      <div class="mt-3 text-muted small">Авторизация по Telegram ID</div>
+    </div>
+    """
+    return render_template_string(BASE_HTML, content=content)
+
+@app.route("/admin/dashboard")
+def admin_dashboard():
+    if not session.get('admin_id') or not is_admin(session.get('admin_id')):
+        flash("Требуется авторизация админа")
+        return redirect(url_for("admin_panel"))
+    prods = admin_get_products()
+    auctions_all = admin_get_auctions()
+    # Forms for add product and create auction
+    content = f"""
+    <div class="row">
+      <div class="col-md-6">
+        <div class="card p-3 mb-3 shadow-soft">
+          <h5>➕ Добавить товар</h5>
+          <form method="post" action="/admin/add_product">
+            <input name="name" class="form-control mb-2" placeholder="Название" required>
+            <textarea name="description" class="form-control mb-2" placeholder="Описание"></textarea>
+            <input name="price" class="form-control mb-2" placeholder="Цена" required type="number" step="0.01">
+            <select name="type" class="form-control mb-2">
+              <option value="agent">💼 Агент</option>
+              <option value="weapon">🔫 Оружие</option>
             </select>
-          </div>
-        </header>
-        <div class="bg-gray-800 rounded-lg p-6 card shadow-lg hover:shadow-xl transition duration-300 animate-fade-in">
-            {}
-            <h3 class="text-2xl font-bold text-green-500 mb-2">{}</h3>
-            <p class="text-gray-300 text-sm mb-2">{}</p>
-            <p class="text-gray-300 text-sm mb-2">{}: {}₽</p>
-            <p class="text-gray-300 text-sm mb-2">{}: {}</p>
-            <p class="text-gray-300 text-sm mb-2">{}</p>
-            <p class="text-gray-300 text-sm mb-2">{}</p>
-            <p class="text-gray-300 text-sm mb-3">{}</p>
-            <p class="text-gray-300 text-sm mb-3">{}: <a href="{}" class="text-blue-500 hover:underline">{}</a></p>
-            <p class="text-gray-300 text-sm mb-3">{}</p>
-            <a href="{}" class="bg-green-600 text-white w-full py-2 rounded-lg hover:bg-green-700 transform hover:scale-105 transition duration-300 btn text-center block text-sm">{}</a>
-            <a href="/shop?lang={}" class="bg-gray-800 text-white w-full py-2 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-2 text-sm text-center">{}</a>
+            <input name="float_value" class="form-control mb-2" placeholder="Float (если оружие)">
+            <input name="link" class="form-control mb-2" placeholder="Ссылка на продукт (необязательно)">
+            <button class="btn btn-success">Добавить</button>
+          </form>
         </div>
-        <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-4 md:hidden">
-            <a href="/shop?lang={}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{}</a>
-            <a href="/auction?lang={}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{}</a>
+
+        <div class="card p-3 shadow-soft">
+          <h5>🏆 Создать аукцион</h5>
+          <form method="post" action="/admin/create_auction">
+            <input name="title" class="form-control mb-2" placeholder="Название лота" required>
+            <textarea name="description" class="form-control mb-2" placeholder="Описание"></textarea>
+            <input name="start_price" class="form-control mb-2" placeholder="Стартовая цена" required type="number" step="0.01">
+            <input name="step" class="form-control mb-2" placeholder="Шаг ставки" required type="number" step="0.01">
+            <input name="duration_minutes" class="form-control mb-2" placeholder="Длительность (минуты)" required type="number" value="60">
+            <button class="btn btn-primary">Создать аукцион</button>
+          </form>
         </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="card p-3 mb-3 shadow-soft">
+          <h5>📦 Товары</h5>
+          {''.join([
+            f\"\"\"
+            <div class='border p-2 mb-2 rounded'>
+              <div class='d-flex justify-content-between'>
+                <div>
+                  <strong>📦 {p['name']}</strong> — {p['price']}<br>
+                  <small class='text-muted'>{p['description']}</small>
+                </div>
+                <div>
+                  <a href='/admin/delete_product/{p['id']}' class='btn btn-sm btn-danger mb-1'>Удалить</a>
+                  <a href='/admin/mark_sold/{p['id']}' class='btn btn-sm btn-outline-success mb-1'>Отметить как продано</a><br>
+                  <a class='btn btn-sm btn-outline-secondary' href='tg://user?id={{session.get(\"admin_id\")}}'>💬 Написать админу</a>
+                </div>
+              </div>
+            </div>
+            \"\"\" for p in prods
+          ])}
+        </div>
+
+        <div class="card p-3 shadow-soft">
+          <h5>⚔️ Аукционы (все)</h5>
+          {''.join([
+            f\"\"\"
+            <div class='border p-2 mb-2 rounded'>
+              <strong>🏷 {a['title']}</strong> — Старт {a['start_price']} — Конец: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(a['end_timestamp']))}<br>
+              <a href='/admin/auction/{a['id']}/bids' class='btn btn-sm btn-outline-primary mt-2'>Посмотреть ставки</a>
+            </div>
+            \"\"\" for a in auctions_all
+          ])}
+        </div>
+      </div>
     </div>
-    """.format(
-        t['product_id'],
-        product[0],
-        product[0],
-        'selected' if lang == 'ru' else '',
-        t['russian'],
-        'selected' if lang == 'uz' else '',
-        t['uzbek'],
-        img_html,
-        product[1],
-        product[2],
-        t['price'],
-        product[3],
-        t['quantity'],
-        product[4],
-        float_text,
-        ban_text,
-        type_text,
-        t['product_link'],
-        product_link,
-        product_link,
-        t['send_to_admin'],
-        admin_url,
-        t['contact_admin'],
-        lang,
-        t['return_to_shop'],
-        lang,
-        t['shop'],
-        lang,
-        t['auction']
-    )
-    return html
+    """
+    return render_template_string(BASE_HTML, content=content)
 
-@app.route('/buy', methods=['POST'])
-def buy():
-    lang = request.args.get('lang', 'ru')
-    if lang not in ['ru', 'uz']:
-        lang = 'ru'
-    t = TRANSLATIONS[lang]
-    logging.info("Маршрут /buy вызван")
-    user_id = session.get('user_id', None)
-    buyer = "Гость" if not user_id else f"ID{user_id}"
-    logging.info(f"Покупатель: {buyer}, user_id: {user_id}")
-    
-    try:
-        product_id = request.form.get('product_id')
-        trade_link = request.form.get('trade_link')
-        product_link = f"https://csgosaller-1.onrender.com/product/{product_id}" if product_id else None
-        logging.info(f"Получен product_id: {product_id}, trade_link: {trade_link}, product_link: {product_link}")
-        if not product_id:
-            logging.error("product_id отсутствует в форме")
-            return TAILWIND + """
-            <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
-                <header class="flex justify-between items-center mb-8">
-                  <div></div>
-                  <div class="relative">
-                    <select onchange="window.location.href='/shop?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
-                      <option value="ru" {}>{}</option>
-                      <option value="uz" {}>{}</option>
-                    </select>
-                  </div>
-                </header>
-                <div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{}</div>
-                <a href="/shop?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{}</a>
-            </div>
-            """.format(
-                'selected' if lang == 'ru' else '',
-                t['russian'],
-                'selected' if lang == 'uz' else '',
-                t['uzbek'],
-                t['buy_error_no_id'],
-                lang,
-                t['back']
-            )
-        
-        pid = int(product_id)
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        c.execute('SELECT name, description, price, quantity, float_value, trade_ban, type FROM products WHERE id=? AND sold=0 AND quantity>0', (pid,))
-        prod = c.fetchone()
-        logging.info(f"Результат запроса к products: {prod}")
-        
-        if not prod:
-            conn.close()
-            logging.error(f"Товар недоступен: id={pid}, prod={prod}")
-            return TAILWIND + """
-            <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
-                <header class="flex justify-between items-center mb-8">
-                  <div></div>
-                  <div class="relative">
-                    <select onchange="window.location.href='/shop?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
-                      <option value="ru" {}>{}</option>
-                      <option value="uz" {}>{}</option>
-                    </select>
-                  </div>
-                </header>
-                <div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{}</div>
-                <a href="/shop?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{}</a>
-            </div>
-            """.format(
-                'selected' if lang == 'ru' else '',
-                t['russian'],
-                'selected' if lang == 'uz' else '',
-                t['uzbek'],
-                t['buy_error_unavailable'],
-                lang,
-                t['back']
-            )
-        
-        c.execute('UPDATE products SET quantity=quantity-1 WHERE id=?', (pid,))
-        if prod[3] == 1:
-            c.execute('UPDATE products SET sold=1 WHERE id=?', (pid,))
-        
-        if user_id:
-            c.execute('INSERT OR REPLACE INTO pending_requests (user_id, product_id, timestamp) VALUES (?, ?, ?)',
-                      (user_id, pid, int(time.time())))
-        
-        conn.commit()
-        conn.close()
-        
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(notify_admins_product(
-            product_id=pid,
-            product_name=prod[0],
-            description=prod[1],
-            price=prod[2],
-            quantity=prod[3],
-            float_value=prod[4],
-            trade_ban=prod[5],
-            product_type=prod[6],
-            user_id=user_id or 0,
-            trade_link=trade_link,
-            product_link=product_link
-        ))
-        loop.close()
-        
-        logging.info(f"Покупка успешна: {prod[0]}, {prod[2]}, {buyer}, {prod[1]}, {prod[3]}, Float: {prod[4]}, Trade Ban: {prod[5]}, Type: {prod[6]}")
-        return TAILWIND + """
-        <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
-            <header class="flex justify-between items-center mb-8">
-              <div></div>
-              <div class="relative">
-                <select onchange="window.location.href='/shop?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-                  <option value="ru" {}>{}</option>
-                  <option value="uz" {}>{}</option>
-                </select>
-              </div>
-            </header>
-            <div class="bg-green-600 text-white p-4 rounded-lg shadow-lg">{}</div>
-            <a href="/?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{}</a>
-        </div>
-        """.format(
-            'selected' if lang == 'ru' else '',
-            t['russian'],
-            'selected' if lang == 'uz' else '',
-            t['uzbek'],
-            t['buy_success'],
-            lang,
-            t['back']
-        )
-    
-    except Exception as e:
-        if 'conn' in locals():
-            conn.close()
-        logging.error(f"Ошибка в /buy: {str(e)}")
-        return TAILWIND + """
-        <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
-            <header class="flex justify-between items-center mb-8">
-              <div></div>
-              <div class="relative">
-                <select onchange="window.location.href='/shop?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
-                  <option value="ru" {}>{}</option>
-                  <option value="uz" {}>{}</option>
-                </select>
-              </div>
-            </header>
-            <div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{}: {}</div>
-            <a href="/shop?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{}</a>
-        </div>
-        """.format(
-            'selected' if lang == 'ru' else '',
-            t['russian'],
-            'selected' if lang == 'uz' else '',
-            t['uzbek'],
-            t['buy_error_unavailable'],
-            str(e),
-            lang,
-            t['back']
-        )
+@app.route("/admin/add_product", methods=["POST"])
+def admin_add_product_route():
+    if not session.get('admin_id') or not is_admin(session.get('admin_id')):
+        flash("Доступ запрещён")
+        return redirect(url_for("admin_panel"))
+    form = request.form
+    admin_add_product(form)
+    flash("✅ Товар добавлен")
+    return redirect(url_for("admin_dashboard"))
 
-@app.route('/auction', methods=['GET'])
-def auction():
-    lang = request.args.get('lang', 'ru')
-    if lang not in ['ru', 'uz']:
-        lang = 'ru'
-    t = TRANSLATIONS[lang]
-    logging.info("Маршрут /auction вызван")
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        logging.info(f"Подключение к базе данных: {DB_PATH}")
-        c = conn.cursor()
-        c.execute('SELECT id, name, description, current_price, end_time, step, active, image, float_value, trade_ban, type FROM lots WHERE active=1')
-        lots = c.fetchall()
-        logging.info(f"Получено лотов: {len(lots)}")
-        conn.close()
-        html = TAILWIND + """
-        <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
-          <header class="flex justify-between items-center mb-8">
-            <h2 class="text-3xl font-bold text-blue-500">{}</h2>
-            <div class="relative">
-              <select onchange="window.location.href='/auction?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="ru" {}>{}</option>
-                <option value="uz" {}>{}</option>
-              </select>
-            </div>
-          </header>
-          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-        """.format(
-            t['auction_title'],
-            'selected' if lang == 'ru' else '',
-            t['russian'],
-            'selected' if lang == 'uz' else '',
-            t['uzbek']
-        )
-        for l in lots:
-            time_left = t['no_limit'] if l[4] is None else "{} {} {} {}".format(max(0, l[4] - int(time.time()))//60, t['time_left'].split(' ')[1], max(0, l[4] - int(time.time()))%60, t['time_left'].split(' ')[3])
-            img_html = '<img src="/static/images/{}" class="mb-4 w-full rounded-lg object-cover shadow-md animate-fade-in" style="max-height:180px;" alt="{}">'.format(l[7], l[1]) if l[7] else ""
-            float_text = "{}: {:.4f}".format(t['float'], l[8]) if l[8] is not None and l[10] == 'weapon' else "{}: {}".format(t['float'], t['na'])
-            ban_text = "{}: {}".format(t['trade_ban'], t['yes'] if l[9] else t['no'])
-            type_text = "{}: {}".format(t['type'], t['weapon'] if l[10] == 'weapon' else t['agent'])
-            html += """
-            <div class="bg-gray-800 rounded-lg p-4 card shadow-lg hover:shadow-xl transition duration-300 animate-fade-in">
-              {}
-              <h5 class="text-xl font-bold text-blue-500 mb-2">{}</h5>
-              <p class="text-gray-300 text-sm mb-2">{}</p>
-              <p class="mt-2"><span class="bg-yellow-500 text-black px-2 py-1 rounded">{}: {}₽</span></p>
-              <p class="mt-2"><span class="bg-gray-600 text-white px-2 py-1 rounded">{}: {}</span></p>
-              <p class="mt-2 text-sm text-gray-400">{} | {} | {}</p>
-              <form method="post" action="/bid" class="mt-4">
-                <input type="hidden" name="lot_id" value="{}">
-                <input type="hidden" name="step" value="{}">
-                <input type="hidden" name="lang" value="{}">
-                <button type="submit" class="bg-yellow-500 text-black w-full py-2 rounded-lg hover:bg-yellow-600 transform hover:scale-105 transition duration-300 btn">{} {}₽</button>
-              </form>
-              <form method="post" action="/bid_custom" class="mt-2">
-                <input type="hidden" name="lot_id" value="{}">
-                <input type="hidden" name="lang" value="{}">
-                <input type="number" name="amount" class="bg-gray-700 text-white w-full p-2 rounded border border-gray-600 mb-2" placeholder="{}" min="{}" required>
-                <button type="submit" class="bg-blue-600 text-white w-full py-2 rounded-lg hover:bg-blue-700 transform hover:scale-105 transition duration-300 btn">{}</button>
-              </form>
-            </div>
-            """.format(
-                img_html,
-                l[1],
-                l[2],
-                t['current_bid'],
-                l[3],
-                t['time_left'],
-                time_left,
-                float_text,
-                ban_text,
-                type_text,
-                l[0],
-                l[5],
-                lang,
-                t['bid_step'],
-                l[5],
-                l[0],
-                lang,
-                t['bid_placeholder'],
-                l[3]+l[5],
-                t['custom_bid']
-            )
-        html += """
-          </div>
-          <hr class="border-gray-700 my-8">
-          <a href="/?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn w-full text-center">{}</a>
-          <div class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 flex justify-around py-4 md:hidden">
-            <a href="/?lang={}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{}</a>
-            <a href="/shop?lang={}" class="text-gray-300 hover:text-orange-500 text-sm font-medium">{}</a>
-          </div>
-        </div>
-        """.format(lang, t['back'], lang, t['home'], lang, t['shop'])
-        return html
-    except Exception as e:
-        if 'conn' in locals():
-            conn.close()
-        logging.error(f"Ошибка в /auction: {str(e)}")
-        return TAILWIND + """
-        <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
-            <header class="flex justify-between items-center mb-8">
-              <div></div>
-              <div class="relative">
-                <select onchange="window.location.href='/auction?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
-                  <option value="ru" {}>{}</option>
-                  <option value="uz" {}>{}</option>
-                </select>
-              </div>
-            </header>
-            <div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{}: {}</div>
-            <a href="/?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{}</a>
-        </div>
-        """.format(
-            'selected' if lang == 'ru' else '',
-            t['russian'],
-            'selected' if lang == 'uz' else '',
-            t['uzbek'],
-            t['buy_error_unavailable'],
-            str(e),
-            lang,
-            t['back']
-        )
+@app.route("/admin/delete_product/<int:product_id>")
+def admin_delete_product_route(product_id):
+    if not session.get('admin_id') or not is_admin(session.get('admin_id')):
+        flash("Доступ запрещён")
+        return redirect(url_for("admin_panel"))
+    admin_delete_product(product_id)
+    flash("🗑️ Товар удалён")
+    return redirect(url_for("admin_dashboard"))
 
-@app.route('/bid', methods=['POST'])
-def bid():
-    lang = request.form.get('lang', 'ru')
-    if lang not in ['ru', 'uz']:
-        lang = 'ru'
-    t = TRANSLATIONS[lang]
-    user_id = session.get('user_id', None)
-    if not user_id:
-        return redirect(url_for('login', lang=lang))
-    lot_id = int(request.form['lot_id'])
-    step = int(request.form['step'])
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('SELECT current_price, end_time FROM lots WHERE id=? AND active=1', (lot_id,))
-    lot = c.fetchone()
-    if not lot:
-        conn.close()
-        return TAILWIND + """
-        <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
-            <header class="flex justify-between items-center mb-8">
-              <div></div>
-              <div class="relative">
-                <select onchange="window.location.href='/auction?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
-                  <option value="ru" {}>{}</option>
-                  <option value="uz" {}>{}</option>
-                </select>
-              </div>
-            </header>
-            <div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{}</div>
-            <a href="/auction?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{}</a>
-        </div>
-        """.format(
-            'selected' if lang == 'ru' else '',
-            t['russian'],
-            'selected' if lang == 'uz' else '',
-            t['uzbek'],
-            t['lot_unavailable'],
-            lang,
-            t['back']
-        )
-    new_price = lot[0] + step
-    c.execute('UPDATE lots SET current_price=? WHERE id=?', (new_price, lot_id))
-    c.execute('INSERT INTO bids (lot_id, user_id, amount, time) VALUES (?, ?, ?, ?)', (lot_id, user_id, new_price, int(time.time())))
-    conn.commit()
-    conn.close()
-    logging.info(f"Ставка: Лот {lot_id}, {new_price}, {user_id}")
-    return redirect(url_for('auction', lang=lang))
+@app.route("/admin/mark_sold/<int:product_id>")
+def admin_mark_sold_route(product_id):
+    if not session.get('admin_id') or not is_admin(session.get('admin_id')):
+        flash("Доступ запрещён")
+        return redirect(url_for("admin_panel"))
+    admin_mark_sold(product_id)
+    flash("✅ Товар отмечен как продано")
+    return redirect(url_for("admin_dashboard"))
 
-@app.route('/bid_custom', methods=['POST'])
-def bid_custom():
-    lang = request.form.get('lang', 'ru')
-    if lang not in ['ru', 'uz']:
-        lang = 'ru'
-    t = TRANSLATIONS[lang]
-    user_id = session.get('user_id', None)
-    if not user_id:
-        return redirect(url_for('login', lang=lang))
-    lot_id = int(request.form['lot_id'])
-    amount = int(request.form['amount'])
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('SELECT current_price, end_time, step FROM lots WHERE id=? AND active=1', (lot_id,))
-    lot = c.fetchone()
-    if not lot or amount < lot[0] + lot[2]:
-        conn.close()
-        return TAILWIND + """
-        <div class="container mx-auto pt-12 pb-10 px-4 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
-            <header class="flex justify-between items-center mb-8">
-              <div></div>
-              <div class="relative">
-                <select onchange="window.location.href='/auction?lang='+this.value" class="bg-gray-700 text-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
-                  <option value="ru" {}>{}</option>
-                  <option value="uz" {}>{}</option>
-                </select>
-              </div>
-            </header>
-            <div class="bg-red-600 text-white p-4 rounded-lg shadow-lg">{}</div>
-            <a href="/auction?lang={}" class="bg-gray-800 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-700 transform hover:scale-105 transition duration-300 btn mt-4 block text-center">{}</a>
-        </div>
-        """.format(
-            'selected' if lang == 'ru' else '',
-            t['russian'],
-            'selected' if lang == 'uz' else '',
-            t['uzbek'],
-            t['bid_too_low'],
-            lang,
-            t['back']
-        )
-    c.execute('UPDATE lots SET current_price=? WHERE id=?', (amount, lot_id))
-    c.execute('INSERT INTO bids (lot_id, user_id, amount, time) VALUES (?, ?, ?, ?)', (lot_id, user_id, amount, int(time.time())))
-    conn.commit()
-    conn.close()
-    logging.info(f"Ставка: Лот {lot_id}, {amount}, {user_id}")
-    return redirect(url_for('auction', lang=lang))
+@app.route("/admin/create_auction", methods=["POST"])
+def admin_create_auction_route():
+    if not session.get('admin_id') or not is_admin(session.get('admin_id')):
+        flash("Доступ запрещён")
+        return redirect(url_for("admin_panel"))
+    admin_create_auction(request.form)
+    flash("🏁 Аукцион создан")
+    return redirect(url_for("admin_dashboard"))
+
+@app.route("/admin/auction/<int:auction_id>/bids")
+def admin_view_bids(auction_id):
+    if not session.get('admin_id') or not is_admin(session.get('admin_id')):
+        flash("Доступ запрещён")
+        return redirect(url_for("admin_panel"))
+    bids = admin_get_bids(auction_id)
+    rows = ""
+    for b in bids:
+        rows += f"<tr><td>{b['id']}</td><td>{b['bidder_identifier']}</td><td>{b['amount']}</td><td>{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(b['created_at']))}</td></tr>"
+    content = f"""
+    <div class="card p-3">
+      <h5>Ставки по лоту #{auction_id}</h5>
+      <table class="table">
+        <thead><tr><th>#</th><th>Участник</th><th>Сумма</th><th>Время</th></tr></thead>
+        <tbody>
+        {rows or '<tr><td colspan=4>Нет ставок</td></tr>'}
+        </tbody>
+      </table>
+      <a class="btn btn-secondary" href="/admin/dashboard">Назад</a>
+    </div>
+    """
+    return render_template_string(BASE_HTML, content=content)
+
+# Простой keep-alive endpoint
+@app.route("/health")
+def health():
+    return "OK", 200
+
+# Экспорт Flask app для запуска в bot.py
+if __name__ == "__main__":
+    # Запуск только при прямом запуске (обычно мы в bot.py запускаем)
+    app.run(host="0.0.0.0", port=5000)

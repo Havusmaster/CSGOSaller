@@ -1,89 +1,164 @@
-import sqlite3
-import os
+# database.py
+"""
+Модуль работы с SQLite.
+Автоинициализация базы данных при импорте.
+Хранит: товары (products), аукционы (auctions), ставки (bids).
+"""
 
-# 🛠 Путь к базе данных (Render разрешает писать только в /opt/render/project/src/)
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.getenv("DB_PATH", os.path.join(BASE_DIR, "data", "database.db"))
+import sqlite3
+from contextlib import closing
+import time
+from config import DB_PATH
+
+# Создаём подключение при каждом вызове функции (простая и надёжная схема)
+def get_conn():
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 def init_db():
-    # Создаём директорию для базы, если её нет
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-
-    # Таблица товаров (магазин)
-    c.execute('''
+    """Создаёт таблицы, если их нет."""
+    with closing(get_conn()) as conn:
+        cur = conn.cursor()
+        # Таблица товаров
+        cur.execute("""
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             description TEXT,
-            price INTEGER NOT NULL,
-            quantity INTEGER NOT NULL,
+            price REAL NOT NULL,
+            type TEXT NOT NULL, -- 'agent' или 'weapon'
+            float_value REAL, -- nullable, только для оружия
+            link TEXT,
             sold INTEGER DEFAULT 0,
-            image TEXT,
-            float_value REAL,
-            trade_ban INTEGER DEFAULT 0,
-            type TEXT NOT NULL
+            created_at INTEGER
         )
-    ''')
-
-    # Таблица аукционов
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS lots (
+        """)
+        # Таблица аукционов
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS auctions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
+            title TEXT NOT NULL,
             description TEXT,
-            start_price INTEGER NOT NULL,
-            current_price INTEGER NOT NULL,
-            step INTEGER NOT NULL,
-            end_time INTEGER,
-            active INTEGER DEFAULT 1,
-            image TEXT,
-            float_value REAL,
-            trade_ban INTEGER DEFAULT 0,
-            type TEXT NOT NULL,
-            winner_id INTEGER
+            start_price REAL NOT NULL,
+            step REAL NOT NULL,
+            end_timestamp INTEGER NOT NULL,
+            finished INTEGER DEFAULT 0,
+            created_at INTEGER
         )
-    ''')
-
-    # Таблица ставок
-    c.execute('''
+        """)
+        # Таблица ставок
+        cur.execute("""
         CREATE TABLE IF NOT EXISTS bids (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            lot_id INTEGER,
-            user_id INTEGER,
-            amount INTEGER,
-            time INTEGER,
-            FOREIGN KEY (lot_id) REFERENCES lots(id)
+            auction_id INTEGER NOT NULL,
+            bidder_identifier TEXT NOT NULL, -- @username or Telegram ID or any identifier from webapp
+            amount REAL NOT NULL,
+            created_at INTEGER,
+            FOREIGN KEY(auction_id) REFERENCES auctions(id)
         )
-    ''')
+        """)
+        conn.commit()
 
-    # Таблица ожидания заявок
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS pending_requests (
-            user_id INTEGER,
-            product_id INTEGER,
-            timestamp INTEGER,
-            PRIMARY KEY (user_id, product_id),
-            FOREIGN KEY (product_id) REFERENCES products(id)
-        )
-    ''')
+# ----- Products -----
+def add_product(name, description, price, type_, float_value=None, link=None):
+    ts = int(time.time())
+    with closing(get_conn()) as conn:
+        cur = conn.cursor()
+        cur.execute("""
+        INSERT INTO products (name, description, price, type, float_value, link, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (name, description, price, type_, float_value, link, ts))
+        conn.commit()
+        return cur.lastrowid
 
-    # Проверка и добавление недостающих колонок
-    def ensure_column_exists(table_name, column_name, column_type):
-        c.execute(f"PRAGMA table_info({table_name})")
-        columns = [col[1] for col in c.fetchall()]
-        if column_name not in columns:
-            c.execute(f'ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}')
+def get_products(only_available=True):
+    with closing(get_conn()) as conn:
+        cur = conn.cursor()
+        if only_available:
+            cur.execute("SELECT * FROM products WHERE sold=0 ORDER BY id DESC")
+        else:
+            cur.execute("SELECT * FROM products ORDER BY id DESC")
+        return [dict(row) for row in cur.fetchall()]
 
-    ensure_column_exists('products', 'float_value', 'REAL')
-    ensure_column_exists('lots', 'float_value', 'REAL')
+def get_product(product_id):
+    with closing(get_conn()) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM products WHERE id=?", (product_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
 
-    conn.commit()
-    conn.close()
+def mark_product_sold(product_id):
+    with closing(get_conn()) as conn:
+        cur = conn.cursor()
+        cur.execute("UPDATE products SET sold=1 WHERE id=?", (product_id,))
+        conn.commit()
 
+def delete_product(product_id):
+    with closing(get_conn()) as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM products WHERE id=?", (product_id,))
+        conn.commit()
 
-if __name__ == '__main__':
-    init_db()
-    print(f"✅ База данных успешно инициализирована по пути: {DB_PATH}")
+# ----- Auctions -----
+def create_auction(title, description, start_price, step, end_timestamp):
+    ts = int(time.time())
+    with closing(get_conn()) as conn:
+        cur = conn.cursor()
+        cur.execute("""
+        INSERT INTO auctions (title, description, start_price, step, end_timestamp, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """, (title, description, start_price, step, end_timestamp, ts))
+        conn.commit()
+        return cur.lastrowid
+
+def get_auctions(only_active=True):
+    now = int(time.time())
+    with closing(get_conn()) as conn:
+        cur = conn.cursor()
+        if only_active:
+            cur.execute("SELECT * FROM auctions WHERE finished=0 AND end_timestamp>? ORDER BY end_timestamp ASC", (now,))
+        else:
+            cur.execute("SELECT * FROM auctions ORDER BY id DESC")
+        return [dict(row) for row in cur.fetchall()]
+
+def get_auction(auction_id):
+    with closing(get_conn()) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM auctions WHERE id=?", (auction_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+def finish_auction(auction_id):
+    with closing(get_conn()) as conn:
+        cur = conn.cursor()
+        cur.execute("UPDATE auctions SET finished=1 WHERE id=?", (auction_id,))
+        conn.commit()
+
+# ----- Bids -----
+def place_bid(auction_id, bidder_identifier, amount):
+    ts = int(time.time())
+    with closing(get_conn()) as conn:
+        cur = conn.cursor()
+        cur.execute("""
+        INSERT INTO bids (auction_id, bidder_identifier, amount, created_at)
+        VALUES (?, ?, ?, ?)
+        """, (auction_id, bidder_identifier, amount, ts))
+        conn.commit()
+        return cur.lastrowid
+
+def get_bids_for_auction(auction_id):
+    with closing(get_conn()) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM bids WHERE auction_id=? ORDER BY amount DESC, created_at ASC", (auction_id,))
+        return [dict(row) for row in cur.fetchall()]
+
+def get_highest_bid(auction_id):
+    with closing(get_conn()) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM bids WHERE auction_id=? ORDER BY amount DESC, created_at ASC LIMIT 1", (auction_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+# Инициализация базы при импортировании
+init_db()
