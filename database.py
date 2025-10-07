@@ -4,13 +4,13 @@ from config import DB_PATH, DEFAULT_LANG, DEFAULT_THEME
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            user_id INTEGER PRIMARY KEY,
-            lang TEXT DEFAULT ?,
-            theme TEXT DEFAULT ?
+    c.execute(f"""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY,
+        lang TEXT DEFAULT '{DEFAULT_LANG}',
+        theme TEXT DEFAULT '{DEFAULT_THEME}'
         )
-    """, (DEFAULT_LANG, DEFAULT_THEME))
+    """)
     conn.commit()
     conn.close()
 
