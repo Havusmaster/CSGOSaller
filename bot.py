@@ -47,21 +47,22 @@ def get_user_theme(tg_id: int):
     prefs = database.get_user_pref(tg_id)
     return prefs.get("theme", DEFAULT_THEME)
 
-def make_lang_kb(current_lang):
-    kb = InlineKeyboardMarkup(row_width=2)
-    kb.add(
-        InlineKeyboardButton(text="🇷🇺 Русский", callback_data=f"setlang:ru"),
-        InlineKeyboardButton(text="🇺🇿 O'zbek", callback_data=f"setlang:uz")
-    )
-    return kb
+def make_lang_kb(lang):
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🇷🇺 Русский", callback_data="set_lang_ru"),
+            InlineKeyboardButton(text="🇺🇿 Oʻzbek", callback_data="set_lang_uz"),
+        ]
+    ])
 
 def make_theme_kb(current_theme):
-    kb = InlineKeyboardMarkup(row_width=2)
-    kb.add(
-        InlineKeyboardButton(text="🌙 Тёмная", callback_data="settheme:dark"),
-        InlineKeyboardButton(text="☀️ Светлая", callback_data="settheme:light")
-    )
-    return kb
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🌙 Тёмная", callback_data="set_theme_dark"),
+            InlineKeyboardButton(text="☀️ Светлая", callback_data="set_theme_light"),
+        ]
+    ])
+
 
 # ----------------------------
 #  Команды
