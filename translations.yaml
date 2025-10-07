@@ -1,0 +1,27 @@
+ru:
+  bot:
+    start: "👋 Привет! Добро пожаловать в нашего бота!"
+    choose_lang: "Выберите язык:"
+    lang_selected: "✅ Язык успешно изменён на Русский 🇷🇺"
+    dark_mode: "🌙 Тёмная тема включена"
+    light_mode: "☀️ Светлая тема включена"
+    help: "Это справка по использованию бота."
+  web:
+    title: "Главная страница"
+    welcome: "Добро пожаловать!"
+    change_theme: "Переключить тему"
+    change_lang: "Изменить язык"
+
+uz:
+  bot:
+    start: "👋 Salom! Botimizga xush kelibsiz!"
+    choose_lang: "Tilni tanlang:"
+    lang_selected: "✅ Til muvaffaqiyatli o‘zgartirildi — O‘zbek 🇺🇿"
+    dark_mode: "🌙 Qorong‘i rejim yoqildi"
+    light_mode: "☀️ Yorug‘ rejim yoqildi"
+    help: "Bu botdan foydalanish bo‘yicha yordam."
+  web:
+    title: "Asosiy sahifa"
+    welcome: "Xush kelibsiz!"
+    change_theme: "Mavzuni o‘zgartirish"
+    change_lang: "Tilni o‘zgartirish"
