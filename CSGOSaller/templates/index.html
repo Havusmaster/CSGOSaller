@@ -1,0 +1,54 @@
+<!-- templates/index.html -->
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ t(lang, "web.title") }}</title>
+  <link rel="stylesheet" href="{{ url_for('static_files', filename='styles.css') }}">
+</head>
+<body class="theme-{{ theme }}">
+<nav class="nav">
+  <div class="container">
+    <a class="brand" href="/?tg_id={{ request.args.get('tg_id','') }}">🛍️ CSsaler</a>
+    <div class="links">
+      <a href="/?tg_id={{ request.args.get('tg_id','') }}">{{ t(lang,'web.shop_heading') }}</a>
+      <a href="/auctions?tg_id={{ request.args.get('tg_id','') }}">{{ t(lang,'web.auctions_heading') }}</a>
+      <a href="/admin">{{ t(lang,'web.admin_panel') }}</a>
+    </div>
+  </div>
+</nav>
+
+<main class="container">
+  <h1>{{ t(lang, 'web.welcome') }}</h1>
+
+  {% if products %}
+    <div class="grid">
+      {% for p in products %}
+      <div class="card">
+        <div class="card-header">📦 {{ p.name }}</div>
+        <div class="card-body">
+          <p class="muted">{{ p.description }}</p>
+          <div class="price">💰 {{ '%.2f'|format(p.price) }}</div>
+          <div class="meta">Тип: {{ '🔫 Оружие' if p.type=='weapon' else '💼 Агент' }}</div>
+        </div>
+        <div class="card-footer">
+          <a class="btn" href="tg://resolve?domain=&start=buy_{{ p.id }}">{{ t(lang, 'web.buy_button') }}</a>
+          {% if p.link %}
+            <a class="btn-outline" href="{{ p.link }}" target="_blank">🔗 {{ t(lang,'web.buy_button') }}</a>
+          {% endif %}
+          <a class="btn-ghost" href="tg://user?id=0">{{ t(lang,'web.write_admin') }}</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="alert">{{ t(lang,'bot.shop_empty') }}</div>
+  {% endif %}
+</main>
+
+<footer class="footer">
+  <div class="container">© CSsaler</div>
+</footer>
+</body>
+</html>

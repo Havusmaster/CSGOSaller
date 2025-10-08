@@ -1,0 +1,46 @@
+<!-- templates/auctions.html -->
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ t(lang, "web.title") }}</title>
+  <link rel="stylesheet" href="{{ url_for('static_files', filename='styles.css') }}">
+</head>
+<body class="theme-{{ theme }}">
+<nav class="nav">
+  <div class="container">
+    <a class="brand" href="/?tg_id={{ request.args.get('tg_id','') }}">🛍️ CSsaler</a>
+    <div class="links">
+      <a href="/?tg_id={{ request.args.get('tg_id','') }}">{{ t(lang,'web.shop_heading') }}</a>
+      <a href="/auctions?tg_id={{ request.args.get('tg_id','') }}">{{ t(lang,'web.auctions_heading') }}</a>
+    </div>
+  </div>
+</nav>
+
+<main class="container">
+  <h1>{{ t(lang, 'web.auctions_heading') }}</h1>
+
+  {% if auctions %}
+    <div class="grid">
+      {% for a in auctions %}
+      <div class="card">
+        <div class="card-header">🏷️ {{ a.title }}</div>
+        <div class="card-body">
+          <p class="muted">{{ a.description }}</p>
+          <div>Старт: {{ '%.2f'|format(a.start_price) }} | Шаг: {{ '%.2f'|format(a.step) }}</div>
+          <div class="muted">Конец: {{ a.end_timestamp | int | to_datetime }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="alert">Нет активных аукционов</div>
+  {% endif %}
+</main>
+
+<footer class="footer">
+  <div class="container">© CSsaler</div>
+</footer>
+</body>
+</html>
