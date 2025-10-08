@@ -10,9 +10,8 @@ import yaml
 TOKEN = os.getenv("BOT_TOKEN", "7504123410:AAEznGqRafbyrBx2e34HzsxztWV201HRMxE")  # Telegram bot token (обязательно задать в Render/Replit env)
 ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()] or [1939282952, 5266027747]  # список админов
 
-APP_URL = os.getenv("APP_URL", "https://csgosaller-1.onrender.com")  # публичный URL приложения (можно задать в env)
+APP_URL = os.getenv("APP_URL", "http://127.0.0.1:5000")  # публичный URL приложения (можно задать в env)
 DB_PATH = os.getenv("DB_PATH", "cs_saler.db")  # sqlite файл
-WEBAPP_URL = "https://csgosaller-1.onrender.com"
 
 # По умолчанию — узбекский и тёмная тема
 DEFAULT_LANG = os.getenv("DEFAULT_LANG", "uz")
